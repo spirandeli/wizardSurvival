@@ -45,6 +45,7 @@ export class HotbarUI {
     this.render();
 
     EventBus.on('INVENTORY_UPDATED', () => this.render());
+    EventBus.on('FORGE_UPDATED', () => this.render());
     EventBus.on('GAME_READY', () => this.render());
   }
 
@@ -56,6 +57,7 @@ export class HotbarUI {
     const state = gameState.getState();
     const selected = state.selectedHotbarIndex;
     const hasTeleport = state.unlockedSpells.includes('teleporte');
+    const hasReadyForge = Boolean(state.forgeJobs?.some((j) => j.status === 'ready'));
 
     const slotsHtml = Array.from({ length: HOTBAR_SIZE }, (_, idx) => {
       const slot = state.inventory[idx];
@@ -93,8 +95,10 @@ export class HotbarUI {
           <button type="button" id="dock-btn-inv" class="dock-btn" title="Mochila & Equipamentos [I]">
             ${UI_SVG.bag}<span>I</span>
           </button>
-          <button type="button" id="dock-btn-craft" class="dock-btn" title="Criação & Fundição [C]">
-            ${UI_SVG.craft}<span>C</span>
+          <button type="button" id="dock-btn-craft" class="dock-btn ${hasReadyForge ? 'has-badge' : ''}" title="${
+            hasReadyForge ? 'Forja pronta para coletar! [C]' : 'Criação & Fundição [C]'
+          }">
+            ${UI_SVG.craft}<span>C</span>${hasReadyForge ? '<i class="dock-dot"></i>' : ''}
           </button>
           <button type="button" id="dock-btn-quest" class="dock-btn" title="Grimório & Missões [J]">
             ${UI_SVG.quest}<span>J</span>

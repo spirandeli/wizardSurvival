@@ -45,8 +45,16 @@ describe('ManaSystem, AnimalSystem (Ovos/Mini-Dragão) e CraftingSystem', () => 
     expect(hatched.hatchedCount).toBe(1);
     expect(state.miniDragonsCount).toBe(1);
 
-    // Agora a fundição de barra de cobre funciona
-    expect(crafting.craft('fundir_barra_cobre').ok).toBe(true);
+    // Sem bancada de fundição (atalho C), fundição é bloqueada
+    expect(crafting.craft('fundir_barra_cobre').ok).toBe(false);
+
+    // Na Bancada de Fundição, inicia a forja com tempo real e coleta após concluir
+    const forgeTile = { tileX: 20, tileY: 12 };
+    expect(crafting.craft('fundir_barra_cobre', forgeTile).ok).toBe(true);
+    expect(inv.countItem('barra_cobre')).toBe(0);
+    expect(crafting.tickForgeJobs(3000)).toHaveLength(0);
+    expect(crafting.tickForgeJobs(3000)).toHaveLength(1);
+    expect(crafting.collectReadyForgeJob(forgeTile.tileX, forgeTile.tileY).ok).toBe(true);
     expect(inv.countItem('barra_cobre')).toBe(1);
   });
 

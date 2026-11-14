@@ -25,6 +25,7 @@ export class HUD {
     EventBus.on('GOLD_UPDATED', () => this.render());
     EventBus.on('GAME_READY', () => this.render());
     EventBus.on('QUESTS_UPDATED', () => this.render());
+    EventBus.on('PIN_QUEST', () => this.render());
     EventBus.on('INVENTORY_UPDATED', () => this.render());
   }
 
@@ -35,9 +36,16 @@ export class HUD {
   private render(): void {
     const state = gameState.getState();
     const { time, vitals, gold, miniDragonsCount, unicorns } = state;
-    const activeMainQuest = QUESTS.find(
-      (q) => q.kind === 'principal' && state.questStates[q.id]?.status === 'active'
-    );
+    const pinnedQuest = state.pinnedQuestId
+      ? QUESTS.find(
+          (q) => q.id === state.pinnedQuestId && state.questStates[q.id]?.status === 'active'
+        )
+      : undefined;
+    const activeMainQuest =
+      pinnedQuest ??
+      QUESTS.find((q) => q.kind === 'principal' && state.questStates[q.id]?.status === 'active') ??
+      QUESTS.find((q) => state.questStates[q.id]?.status === 'active');
+    const isManuallyPinned = Boolean(pinnedQuest && activeMainQuest?.id === pinnedQuest.id);
     const invSys = new InventorySystem(state);
     const questSys = new QuestSystem(state, invSys);
     const pendingStep = activeMainQuest
@@ -94,8 +102,8 @@ export class HUD {
         </div>
 
         ${activeMainQuest
-        ? `<button type="button" id="hud-quest-btn" class="hud-quest-hint" title="${activeMainQuest.objectiveHint}">
-                <div>✦ ${activeMainQuest.title}</div>
+        ? `<button type="button" id="hud-quest-btn" class="hud-quest-hint ${isManuallyPinned ? 'pinned' : ''}" title="${activeMainQuest.objectiveHint}">
+                <div>${isManuallyPinned ? '📌' : '✦'} ${activeMainQuest.title}</div>
                 ${pendingStep
           ? `<div class="hud-quest-step">↳ ${pendingStep.label}${pendingStep.target > 1 ? ` (${pendingStep.current}/${pendingStep.target})` : ''
           }</div>`

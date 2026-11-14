@@ -899,29 +899,26 @@ def build_tilesets() -> None:
 
     # 1. Chapada dos Veadeiros (4x2 -> 128x64)
     chapada_raw = Image.open(tiles_raw / "chapada_tileset.png").convert("RGBA")
-    chap_items = extract_components(chapada_raw, min_body_area=5000)
-    chap_rows = sort_grid_rows(chap_items, row_tolerance=120)
-    assert len(chap_rows) == 2 and all(len(r) == 4 for r in chap_rows), f"chapada={[len(r) for r in chap_rows]}"
+    chap_y_segs = [(31, 379), (389, 731)]
+    chap_x_segs = [(11, 344), (354, 683), (693, 1022), (1032, 1365)]
     chap_out = Image.new("RGBA", (128, 64), (0, 0, 0, 0))
-    for r_idx, row in enumerate(chap_rows):
-        for c_idx, (_, crop) in enumerate(row):
-            if (r_idx, c_idx) == (0, 3):
-                tile = make_overlay_tile(crop, 32, pad=1, anchor="bottom")
-            else:
-                tile = make_full_tile(crop, 32, inset_frac=0.07)
+    for r_idx, (ry0, ry1) in enumerate(chap_y_segs):
+        for c_idx, (cx0, cx1) in enumerate(chap_x_segs):
+            crop = chapada_raw.crop((cx0, ry0, cx1, ry1))
+            tile = make_full_tile(crop, 32, inset_frac=0.04)
             chap_out.alpha_composite(tile, (c_idx * 32, r_idx * 32))
     chap_out.save(tiles_out / "chapada_tileset.png")
     print("Saved chapada_tileset.png", chap_out.size)
 
     # 2. Serra de Varginha & Omena (4x4 -> 128x128)
     varg_raw = Image.open(tiles_raw / "varginha_tileset.png").convert("RGBA")
-    varg_row_bands = [(10, 246), (258, 493), (512, 734), (746, 1010)]
-    varg_col_bands = [(92, 386), (452, 746), (808, 1088), (1154, 1440)]
+    vw, vh = varg_raw.size
+    vcw, vrh = vw // 4, vh // 4
     varg_out = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
-    for r_idx, (ry0, ry1) in enumerate(varg_row_bands):
-        for c_idx, (cx0, cx1) in enumerate(varg_col_bands):
-            crop = alpha_crop(varg_raw, (cx0, ry0, cx1, ry1))
-            tile = make_full_tile(crop, 32, inset_frac=0.075)
+    for r_idx in range(4):
+        for c_idx in range(4):
+            crop = varg_raw.crop((c_idx * vcw, r_idx * vrh, (c_idx + 1) * vcw, (r_idx + 1) * vrh))
+            tile = make_full_tile(crop, 32, inset_frac=0.045)
             varg_out.alpha_composite(tile, (c_idx * 32, r_idx * 32))
     varg_out.save(tiles_out / "varginha_tileset.png")
     print("Saved varginha_tileset.png", varg_out.size)
@@ -995,38 +992,32 @@ def build_tilesets() -> None:
     print("Saved sao_tome_tileset.png", st_out.size)
 
     # 4. Machu Picchu temático completo (4x4 -> 128x128)
-    def mp_prop(box: tuple[int, int, int, int], pad: int = 1, anchor: str = "bottom") -> Image.Image:
-        cropped = remove_dark_bg(mp_raw.crop(box), bg_rgb=(25, 26, 35), tol=36)
-        comps = extract_components(cropped, min_body_area=800, max_particle_dist=25.0)
-        if comps:
-            main = max(comps, key=lambda c: c[1].width * c[1].height)[1]
-        else:
-            bb = cropped.getbbox()
-            main = cropped.crop(bb) if bb else cropped
-        return make_overlay_tile(main, 32, pad=pad, anchor=anchor)
+    mpw, mph = mp_raw.size
+    mcw, mrh = mpw // 4, mph // 4
+    mp_magenta_props = {(2, 1), (3, 0), (3, 3)}
+    mp_tiles: list[Image.Image] = []
+    for r_idx in range(4):
+        for c_idx in range(4):
+            cell = mp_raw.crop((c_idx * mcw, r_idx * mrh, (c_idx + 1) * mcw, (r_idx + 1) * mrh))
+            if (r_idx, c_idx) in mp_magenta_props:
+                clean = remove_magenta_bg(cell)
+                bb = clean.getbbox()
+                if bb:
+                    clean = clean.crop(bb)
+                mp_tiles.append(make_overlay_tile(clean, 32, pad=1, anchor="bottom"))
+            else:
+                mp_tiles.append(make_full_tile(cell, 32, inset_frac=0.02))
 
-    mp_tiles: list[Image.Image] = [
-        # Linha 0 (GIDs 1..4): Piso, Parede, Armadilha, Veio
-        make_full_tile(mp_raw.crop((520, 172, 662, 298)), 32, inset_frac=0.05),   # 1: Piso inca com musgo
-        make_full_tile(mp_raw.crop((179, 10, 329, 155)), 32, inset_frac=0.05),    # 2: Parede inca
-        make_full_tile(mp_raw.crop((996, 184, 1136, 300)), 32, inset_frac=0.04),  # 3: Armadilha de espinhos
-        make_full_tile(mp_raw.crop((997, 12, 1136, 154)), 32, inset_frac=0.04),   # 4: Veio de minério inca
-        # Linha 1 (GIDs 5..8): Escada, Runa solar, Abismo nuvens, Piso fissura solar
-        make_full_tile(mp_raw.crop((818, 464, 949, 568)), 32, inset_frac=0.04),   # 5: Escadaria de descida
-        make_full_tile(mp_raw.crop((1157, 184, 1283, 300)), 32, inset_frac=0.04), # 6: Runa Medalhão do Sol
-        make_full_tile(mp_raw.crop((1365, 466, 1516, 570)), 32, inset_frac=0.04), # 7: Abismo / névoa das montanhas
-        make_full_tile(mp_raw.crop((675, 172, 817, 298)), 32, inset_frac=0.05),   # 8: Piso inca fissuras solares
-        # Linha 2 (GIDs 9..12): Pilar, Braseiro, Estátua, Parede do Sol
-        mp_prop((703, 6, 799, 158), pad=1, anchor="bottom"),                      # 9: Pilar de pedra inca
-        mp_prop((34, 314, 132, 444), pad=1, anchor="bottom"),                     # 10: Braseiro flamejante
-        mp_prop((325, 314, 430, 444), pad=1, anchor="bottom"),                    # 11: Estátua guardiã inca
-        make_full_tile(mp_raw.crop((520, 10, 674, 156)), 32, inset_frac=0.05),    # 12: Parede com Medalhão do Sol
-        # Linha 3 (GIDs 13..16): Portal/Arco, Pedestal cristal, Baú, Monólito verde
-        mp_prop((347, 6, 507, 158), pad=0, anchor="bottom"),                      # 13: Arco / Portal inca
-        mp_prop((192, 314, 282, 444), pad=1, anchor="bottom"),                    # 14: Pedestal cristal amarelo
-        mp_prop((1368, 315, 1498, 437), pad=1, anchor="bottom"),                  # 15: Baú do tesouro inca
-        mp_prop((604, 314, 697, 444), pad=1, anchor="bottom"),                    # 16: Monólito de teleporte
-    ]
+    # Atualiza GIDs 28..32 de sao_tome_tileset.png com os tiles remasterizados de Machu Picchu
+    for i in range(5):
+        tiles_32[27 + i] = mp_tiles[i]
+    st_out = Image.new("RGBA", (256, 128), (0, 0, 0, 0))
+    for idx, tile in enumerate(tiles_32):
+        col = idx % 8
+        row = idx // 8
+        st_out.alpha_composite(tile, (col * 32, row * 32))
+    st_out.save(tiles_out / "sao_tome_tileset.png")
+    print("Saved sao_tome_tileset.png (updated MP GIDs)", st_out.size)
 
     mp_out = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
     for idx, tile in enumerate(mp_tiles):
@@ -1082,7 +1073,7 @@ def build_tilesets() -> None:
     print("Saved sao_tome_nature_extended.png", nat_out.size)
 
     # 8. Lote 12: Detalhes de Dungeons (4x4 -> 128x128)
-    dd_raw = remove_white_bg(Image.open(tiles_raw / "dungeons_details.png"), clear_interior_holes=False)
+    dd_raw = remove_magenta_bg(Image.open(tiles_raw / "dungeons_details.png"))
     dd_grid = split_guided_grid(dd_raw, 4, 4)
     dd_out = Image.new("RGBA", (4 * 32, 4 * 32), (0, 0, 0, 0))
     for r_idx, row in enumerate(dd_grid):
@@ -1137,6 +1128,65 @@ def build_portraits() -> None:
                 out.alpha_composite(resized, (ox, oy))
                 out.save(p_out_dir / f"{portrait_id}.png")
     print("Saved 16 portraits (64x64) in", p_out_dir)
+
+
+def build_bosses_elemental_ext_sheet() -> None:
+    """
+    A folha gerada tem 7 sprites na Linha 0 (Guardião das Águas) e 6 na Linha 1 (Guardião dos Céus).
+    Extraímos a Linha 0 por vales verticais e selecionamos os 6 frames correspondentes ao layout 6x2.
+    """
+    src_path = RAW_DIR / "bosses_elemental_ext.png"
+    if not src_path.exists():
+        return
+    src = remove_magenta_bg(Image.open(src_path))
+    w, h = src.size
+    px = src.load()
+    row_ink = [sum(1 for x in range(w) if px[x, y][3] > 16) for y in range(h)]
+    mid_lo = int(h * 0.40)
+    mid_hi = int(h * 0.60)
+    zeros = [y for y in range(mid_lo, mid_hi + 1) if row_ink[y] == 0]
+    y_split = zeros[len(zeros) // 2] if zeros else min(range(mid_lo, mid_hi + 1), key=lambda y: row_ink[y])
+
+    row0_im = src.crop((0, 0, w, y_split))
+    r0px = row0_im.load()
+    r0w, r0h = row0_im.size
+    col_ink = [sum(1 for y in range(r0h) if r0px[x, y][3] > 16) for x in range(r0w)]
+    segs: list[tuple[int, int]] = []
+    in_seg = False
+    s = 0
+    for x, c in enumerate(col_ink):
+        if not in_seg and c > 0:
+            s = x
+            in_seg = True
+        elif in_seg and c == 0:
+            if x - s > 20:
+                segs.append((s, x))
+            in_seg = False
+    if in_seg and r0w - s > 20:
+        segs.append((s, r0w))
+
+    row0_crops = [row0_im.crop((x0, 0, x1, r0h)) for x0, x1 in segs]
+    row0_crops = [c.crop(c.getbbox()) for c in row0_crops if c.getbbox()]
+    if len(row0_crops) == 7:
+        # Descarta o frame 0 (idle frontal duplicado com boss_water_guardian.png) e mantém os 6 frames de movimento/up/whirlpool/recoil
+        row0_crops = row0_crops[1:]
+    assert len(row0_crops) == 6, f"bosses_elemental_ext row0={len(row0_crops)}"
+
+    row1_im = src.crop((0, y_split, w, h))
+    row1_crops = split_guided_grid(row1_im, 6, 1)[0]
+
+    grid = [row0_crops, row1_crops]
+    cell_size = 64
+    max_h = max(c.size[1] for r in grid for c in r)
+    usable = float(cell_size - 4)
+    scale = usable / max_h
+    out = Image.new("RGBA", (6 * cell_size, 2 * cell_size), (0, 0, 0, 0))
+    for r_idx, row in enumerate(grid):
+        for c_idx, crop in enumerate(row):
+            cell_scale = min(scale, (cell_size - 2) / crop.size[0])
+            paste_into_cell(out, crop, c_idx, r_idx, cell_size, cell_scale, "bottom", pad_bottom=2)
+    out.save(OUT_DIR / "bosses_elemental_ext.png")
+    print(f"Saved bosses_elemental_ext.png {out.size}")
 
 
 if __name__ == "__main__":
@@ -1371,6 +1421,7 @@ if __name__ == "__main__":
             anchor="bottom",
             pad_bottom=2,
             clear_interior_holes=False,
+            bg_mode="magenta",
             guided=True,
             height_priority=True,
         )
@@ -1382,6 +1433,7 @@ if __name__ == "__main__":
         anchor="bottom",
         pad_bottom=2,
         clear_interior_holes=False,
+        bg_mode="magenta",
         guided=True,
         height_priority=True,
     )
@@ -1398,12 +1450,12 @@ if __name__ == "__main__":
             anchor="bottom",
             pad_bottom=2,
             clear_interior_holes=False,
+            bg_mode="magenta",
             guided=True,
             height_priority=True,
         )
     for boss_ext_name in (
         "boss_earth_guardian_ext.png",
-        "bosses_elemental_ext.png",
         "boss_omena_ext.png",
     ):
         build_grid_sprite_sheet(
@@ -1414,9 +1466,11 @@ if __name__ == "__main__":
             anchor="bottom",
             pad_bottom=2,
             clear_interior_holes=False,
+            bg_mode="magenta",
             guided=True,
             height_priority=True,
         )
+    build_bosses_elemental_ext_sheet()
     build_grid_sprite_sheet(
         "companions_ext.png",
         cols=4,
@@ -1424,6 +1478,7 @@ if __name__ == "__main__":
         cell_size=48,
         anchor="center",
         clear_interior_holes=False,
+        bg_mode="magenta",
         guided=True,
         height_priority=True,
     )
@@ -1435,6 +1490,7 @@ if __name__ == "__main__":
         anchor="bottom",
         pad_bottom=2,
         clear_interior_holes=False,
+        bg_mode="magenta",
         guided=True,
         height_priority=True,
     )
@@ -1445,6 +1501,7 @@ if __name__ == "__main__":
         cell_size=32,
         anchor="center",
         clear_interior_holes=False,
+        bg_mode="magenta",
         guided=True,
         height_priority=True,
     )
@@ -1456,6 +1513,7 @@ if __name__ == "__main__":
         anchor="bottom",
         pad_bottom=2,
         clear_interior_holes=False,
+        bg_mode="magenta",
         guided=True,
         height_priority=True,
     )
@@ -1466,6 +1524,7 @@ if __name__ == "__main__":
         cell_size=32,
         anchor="center",
         clear_interior_holes=False,
+        bg_mode="magenta",
         guided=True,
         height_priority=True,
     )

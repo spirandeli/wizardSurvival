@@ -344,5 +344,123 @@ export class InventorySystem {
     this.state.shippingBin = [];
     return { totalGold, itemsSold };
   }
+
+  /** Organiza os espaços da mochila interna (acima da hotbar), agrupando pilhas e ordenando por categoria e nome. */
+  sortBackpack(): { moved: number } {
+    const start = HOTBAR_SIZE;
+    const end = this.state.inventory.length;
+    if (end <= start) return { moved: 0 };
+
+    const items: InventorySlot[] = [];
+    for (let i = start; i < end; i++) {
+      const slot = this.state.inventory[i];
+      if (!slot || slot.quantity <= 0) continue;
+      const maxStack = getItemDef(slot.itemId)?.maxStack ?? 99;
+      let remaining = slot.quantity;
+      for (const existing of items) {
+        if (existing.itemId === slot.itemId && existing.quantity < maxStack) {
+          const add = Math.min(remaining, maxStack - existing.quantity);
+          existing.quantity += add;
+          remaining -= add;
+          if (remaining <= 0) break;
+        }
+      }
+      if (remaining > 0) {
+        items.push({ itemId: slot.itemId, quantity: remaining });
+      }
+    }
+
+    const categoryOrder: Record<string, number> = {
+      tool: 0,
+      weapon: 1,
+      armor: 2,
+      consumable: 3,
+      crop: 4,
+      seed: 5,
+      egg: 6,
+      placeable: 7,
+      resource: 8,
+    };
+
+    items.sort((a, b) => {
+      const defA = getItemDef(a.itemId);
+      const defB = getItemDef(b.itemId);
+      const catDiff =
+        (categoryOrder[defA?.category ?? 'resource'] ?? 99) -
+        (categoryOrder[defB?.category ?? 'resource'] ?? 99);
+      if (catDiff !== 0) return catDiff;
+      return (defA?.name ?? a.itemId).localeCompare(defB?.name ?? b.itemId, 'pt-BR');
+    });
+
+    let moved = 0;
+    for (let i = start; i < end; i++) {
+      const next = items[i - start] ?? null;
+      const prev = this.state.inventory[i];
+      if (prev?.itemId !== next?.itemId || prev?.quantity !== next?.quantity) {
+        moved++;
+      }
+      this.state.inventory[i] = next;
+    }
+
+    return { moved };
+  }
+
+  /** Divide uma pilha ao meio para o primeiro espaço livre disponível. */
+  splitStack(slotIndex: number): { ok: boolean; targetIndex?: number; message: string } {
+    const slot = this.state.inventory[slotIndex];
+    if (!slot || slot.quantity < 2) {
+      return { ok: false, message: 'Precisa de ao menos 2 unidades para dividir a pilha.' };
+    }
+
+    const isInHotbar = slotIndex < HOTBAR_SIZE;
+    const primaryStart = isInHotbar ? 0 : HOTBAR_SIZE;
+    const primaryEnd = isInHotbar ? HOTBAR_SIZE : this.state.inventory.length;
+    const secondaryStart = isInHotbar ? HOTBAR_SIZE : 0;
+    const secondaryEnd = isInHotbar ? this.state.inventory.length : HOTBAR_SIZE;
+
+    let emptyIdx = -1;
+    for (let i = primaryStart; i < primaryEnd; i++) {
+      if (this.state.inventory[i] === null) {
+        emptyIdx = i;
+        break;
+      }
+    }
+    if (emptyIdx === -1) {
+      for (let i = secondaryStart; i < secondaryEnd; i++) {
+        if (this.state.inventory[i] === null) {
+          emptyIdx = i;
+          break;
+        }
+      }
+    }
+
+    if (emptyIdx === -1) {
+      return { ok: false, message: 'Sem espaço livre para dividir a pilha.' };
+    }
+
+    const splitQty = Math.floor(slot.quantity / 2);
+    slot.quantity -= splitQty;
+    this.state.inventory[emptyIdx] = { itemId: slot.itemId, quantity: splitQty };
+    return { ok: true, targetIndex: emptyIdx, message: `Pilha dividida (${splitQty}×).` };
+  }
+
+  /** Descarta um espaço do inventário na lixeira, devolvendo uma fração do valor de venda. */
+  discardSlot(slotIndex: number, refundRatio = 0.15): { ok: boolean; removedName?: string; refundGold: number } {
+    const slot = this.state.inventory[slotIndex];
+    if (!slot) {
+      return { ok: false, refundGold: 0 };
+    }
+    const def = getItemDef(slot.itemId);
+    const refundGold =
+      def && def.sellPrice > 0 && refundRatio > 0
+        ? Math.max(1, Math.floor(def.sellPrice * slot.quantity * refundRatio))
+        : 0;
+
+    this.state.inventory[slotIndex] = null;
+    if (refundGold > 0) {
+      this.state.gold += refundGold;
+    }
+    return { ok: true, removedName: def?.name ?? slot.itemId, refundGold };
+  }
 }
 

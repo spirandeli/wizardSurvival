@@ -173,6 +173,11 @@ export class WorldScene extends Phaser.Scene {
   private omenaPortalSprite: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite | null = null;
   private treeOverlaySprites = new Map<string, Phaser.GameObjects.Image>();
   private boulderOverlaySprites = new Map<string, Phaser.GameObjects.Image>();
+  private treeHpMap = new Map<string, number>();
+  private rockHpMap = new Map<string, number>();
+  private forgeReadyMarkers = new Map<string, Phaser.GameObjects.Text>();
+  private forgeUiAccumMs = 0;
+  private dragonForgeFireAccumMs = 0;
   private timeVisualSprites: Array<{
     sprite: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite;
     dayFrame: number;
@@ -223,6 +228,12 @@ export class WorldScene extends Phaser.Scene {
     this.omenaPortalSprite = null;
     this.treeOverlaySprites.clear();
     this.boulderOverlaySprites.clear();
+    this.treeHpMap.clear();
+    this.rockHpMap.clear();
+    this.forgeReadyMarkers.forEach((m) => m.destroy());
+    this.forgeReadyMarkers.clear();
+    this.forgeUiAccumMs = 0;
+    this.dragonForgeFireAccumMs = 0;
     this.timeVisualSprites = [];
     this.wildlifeSprites = [];
     this.wildlifeIsNight = false;
@@ -267,6 +278,7 @@ export class WorldScene extends Phaser.Scene {
     this.chaoLayer?.setDepth(0);
     this.decoracaoLayer?.setDepth(1);
     this.colisoesLayer?.setDepth(2);
+    this.refreshForgeBenchMarkers();
 
     if (this.colisoesLayer) {
       this.colisoesLayer.setCollisionByExclusion([-1, 0]);
@@ -500,11 +512,19 @@ export class WorldScene extends Phaser.Scene {
       EventBus.emit('INVENTORY_UPDATED', { selectedIndex: gameState.getState().selectedHotbarIndex });
     };
 
-    const onCraft = ({ recipeId }: { recipeId: string }) => {
-      const res = this.craftingSystem.craft(recipeId);
+    const onCraft = ({
+      recipeId,
+      forgeTile,
+    }: {
+      recipeId: string;
+      forgeTile?: { tileX: number; tileY: number };
+    }) => {
+      const res = this.craftingSystem.craft(recipeId, forgeTile);
       EventBus.emit('AUDIO_PLAY_SFX', { kind: res.ok ? 'craft' : 'error' });
       EventBus.emit('SHOW_TOAST', { message: res.message, kind: res.ok ? 'success' : 'error' });
       EventBus.emit('INVENTORY_UPDATED', { selectedIndex: gameState.getState().selectedHotbarIndex });
+      EventBus.emit('FORGE_UPDATED');
+      this.refreshForgeBenchMarkers();
       this.evaluateAndNotifyQuests();
     };
 
@@ -959,7 +979,22 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
     if (tileState?.placedItemId === 'bancada_fundicao') {
-      EventBus.emit('OPEN_INVENTORY_MODAL', { tab: 'criacao' });
+      const readyJob = this.craftingSystem.getForgeJobAt(tileX, tileY);
+      if (readyJob?.status === 'ready') {
+        const res = this.craftingSystem.collectReadyForgeJob(tileX, tileY);
+        EventBus.emit('AUDIO_PLAY_SFX', { kind: res.ok ? 'craft' : 'error' });
+        EventBus.emit('SHOW_TOAST', { message: res.message, kind: res.ok ? 'success' : 'error' });
+        EventBus.emit('INVENTORY_UPDATED', { selectedIndex: state.selectedHotbarIndex });
+        EventBus.emit('FORGE_UPDATED');
+        this.refreshForgeBenchMarkers();
+        this.evaluateAndNotifyQuests();
+        return;
+      }
+      EventBus.emit('OPEN_INVENTORY_MODAL', {
+        tab: 'criacao',
+        station: 'fundicao',
+        forgeTile: { tileX, tileY },
+      });
       return;
     }
     if (tileState?.placedItemId === 'bancada_encantamento') {
@@ -989,6 +1024,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private useInventorySlot(slotIndex: number): void {
+    if (this.player.isActionLocked()) return;
     const state = gameState.getState();
     const slot = state.inventory[slotIndex];
     if (!slot) return;
@@ -1038,6 +1074,7 @@ export class WorldScene extends Phaser.Scene {
     tileY: number,
     colTile: Phaser.Tilemaps.Tile | null | undefined
   ): void {
+    if (this.player.isActionLocked()) return;
     const state = gameState.getState();
     const itemDef = getItemDef(itemId);
     if (!itemDef) return;
@@ -1137,7 +1174,7 @@ export class WorldScene extends Phaser.Scene {
       if (colTile?.index === 4 || groundTile?.index === 4) {
         this.handleFishingSpot();
       } else {
-        this.player.playAction('swing', itemDef.id);
+        EventBus.emit('AUDIO_PLAY_SFX', { kind: 'error' });
         EventBus.emit('SHOW_TOAST', {
           message: 'Aproxime-se de uma margem de água para pescar.',
           kind: 'info',
@@ -1600,13 +1637,47 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private handleFishingSpot(): void {
+    if (this.player.isActionLocked()) return;
     const state = gameState.getState();
+    if (!this.inventorySystem.hasItem('vara_pesca_simples', 1)) {
+      EventBus.emit('SHOW_TOAST', {
+        message: 'Você precisa da Vara de Pesca (Missão 1.1 com o Prefeito Arlindo).',
+        kind: 'info',
+      });
+      return;
+    }
+    if (state.vitals.stamina < 2) {
+      EventBus.emit('SHOW_TOAST', { message: 'Stamina insuficiente para pescar!', kind: 'error' });
+      return;
+    }
     this.player.playAction('swing', 'vara_pesca_simples');
     const isNightOrEvening = state.time.minuteOfDay >= 18 * 60;
-    EventBus.emit('OPEN_FISHING_MODAL', { isNightOrEvening });
+    this.time.delayedCall(350, () => {
+      EventBus.emit('OPEN_FISHING_MODAL', { isNightOrEvening });
+    });
+  }
+
+  private shakeSpriteFeedback(sprite: Phaser.GameObjects.Image | undefined): void {
+    if (!sprite || !sprite.active) return;
+    const originX = sprite.x;
+    sprite.setTint(0xfef08a);
+    this.time.delayedCall(90, () => {
+      if (sprite.active) sprite.clearTint();
+    });
+    this.tweens.add({
+      targets: sprite,
+      x: originX + 3,
+      duration: 45,
+      yoyo: true,
+      repeat: 2,
+      onComplete: () => {
+        if (sprite.active) sprite.x = originX;
+      },
+    });
   }
 
   private handleFarmRockMining(tileX: number, tileY: number, isOreVein = false): void {
+    if (this.player.isActionLocked()) return;
     const selected = this.inventorySystem.getSelectedSlot();
     if (selected?.itemId !== 'picareta_simples') {
       EventBus.emit('SHOW_TOAST', {
@@ -1616,15 +1687,29 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
     const state = gameState.getState();
-    if (state.vitals.stamina < 3) {
+    if (state.vitals.stamina < 2) {
       EventBus.emit('SHOW_TOAST', { message: 'Stamina insuficiente!', kind: 'error' });
       return;
     }
-    state.vitals.stamina -= 3;
+    state.vitals.stamina -= 2;
     this.player.playAction('swing', 'picareta_simples');
-    this.colisoesLayer?.removeTileAt(tileX, tileY);
+    EventBus.emit('VITALS_UPDATED', { vitals: state.vitals });
+
     const boulderKey = makeTileKey(this.mapId, tileX, tileY);
     const boulderSprite = this.boulderOverlaySprites.get(boulderKey);
+    const baseHp = (isOreVein ? 3 : 2) - (state.flags.tools_upgraded_bento ? 1 : 0);
+    const currentHp = this.rockHpMap.get(boulderKey) ?? Math.max(1, baseHp);
+    const nextHp = currentHp - 1;
+
+    if (nextHp > 0) {
+      this.rockHpMap.set(boulderKey, nextHp);
+      this.shakeSpriteFeedback(boulderSprite);
+      EventBus.emit('AUDIO_PLAY_SFX', { kind: 'interact' });
+      return;
+    }
+
+    this.rockHpMap.delete(boulderKey);
+    this.colisoesLayer?.removeTileAt(tileX, tileY);
     if (boulderSprite) {
       boulderSprite.destroy();
       this.boulderOverlaySprites.delete(boulderKey);
@@ -1639,7 +1724,6 @@ export class WorldScene extends Phaser.Scene {
       this.inventorySystem.addItem('quartzo_bruto', 1);
     }
     EventBus.emit('AUDIO_PLAY_SFX', { kind: 'craft' });
-    EventBus.emit('VITALS_UPDATED', { vitals: state.vitals });
     EventBus.emit('INVENTORY_UPDATED', { selectedIndex: state.selectedHotbarIndex });
     const bonusNote = toolBonus > 0 ? ' (+Bento)' : '';
     EventBus.emit('SHOW_TOAST', {
@@ -1651,6 +1735,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private handleTreeChopping(tileX: number, tileY: number): void {
+    if (this.player.isActionLocked()) return;
     const isBorderTree =
       tileX <= 0 || tileY <= 0 || tileX >= this.map.width - 1 || tileY >= this.map.height - 1;
     if (isBorderTree) {
@@ -1671,18 +1756,39 @@ export class WorldScene extends Phaser.Scene {
     }
 
     const state = gameState.getState();
-    if (state.vitals.stamina < 3) {
+    if (state.vitals.stamina < 2) {
       EventBus.emit('SHOW_TOAST', { message: 'Stamina insuficiente!', kind: 'error' });
       return;
     }
-    state.vitals.stamina -= 3;
+    state.vitals.stamina -= 2;
     this.player.playAction('swing', 'machado_simples');
-    this.colisoesLayer?.removeTileAt(tileX, tileY);
+    EventBus.emit('VITALS_UPDATED', { vitals: state.vitals });
+
     const treeKey = makeTileKey(this.mapId, tileX, tileY);
     const treeSprite = this.treeOverlaySprites.get(treeKey);
+    const baseHp = 4 - (state.flags.tools_upgraded_bento ? 1 : 0);
+    const currentHp = this.treeHpMap.get(treeKey) ?? Math.max(1, baseHp);
+    const nextHp = currentHp - 1;
+
+    if (nextHp > 0) {
+      this.treeHpMap.set(treeKey, nextHp);
+      this.shakeSpriteFeedback(treeSprite);
+      EventBus.emit('AUDIO_PLAY_SFX', { kind: 'farm' });
+      return;
+    }
+
+    this.treeHpMap.delete(treeKey);
+    this.colisoesLayer?.removeTileAt(tileX, tileY);
     if (treeSprite) {
-      treeSprite.destroy();
       this.treeOverlaySprites.delete(treeKey);
+      this.tweens.add({
+        targets: treeSprite,
+        angle: this.player.facing === 'left' ? -75 : 75,
+        alpha: 0,
+        duration: 280,
+        ease: 'Quad.easeIn',
+        onComplete: () => treeSprite.destroy(),
+      });
     }
     if (this.textures.exists('nature_extended_sheet')) {
       const center = this.gridSystem.tileToWorldCenter(tileX, tileY);
@@ -1693,7 +1799,6 @@ export class WorldScene extends Phaser.Scene {
     const woodYield = 3 + (state.flags.tools_upgraded_bento ? 1 : 0);
     this.inventorySystem.addItem('madeira', woodYield);
     EventBus.emit('AUDIO_PLAY_SFX', { kind: 'farm' });
-    EventBus.emit('VITALS_UPDATED', { vitals: state.vitals });
     EventBus.emit('INVENTORY_UPDATED', { selectedIndex: state.selectedHotbarIndex });
     EventBus.emit('SHOW_TOAST', { message: `Coletou ${woodYield}x Madeira!`, kind: 'success' });
   }
@@ -1933,6 +2038,7 @@ export class WorldScene extends Phaser.Scene {
     const { hatchedCount, hatchedUnicornsCount } = this.animalSystem.processEndOfDay(
       this.animalSystem.getAbsoluteDay()
     );
+    this.craftingSystem.completeAllForgeJobs();
 
     state.vitals.hp = state.vitals.maxHp;
     state.vitals.stamina = state.vitals.maxStamina;
@@ -2006,6 +2112,28 @@ export class WorldScene extends Phaser.Scene {
 
     if (tile.placedItemId) {
       if (
+        tile.placedItemId === 'incubadora_arcana' &&
+        this.textures.exists('workbenches_animated_sheet')
+      ) {
+        const inc = this.add
+          .sprite(center.x, center.y - 6, 'workbenches_animated_sheet', 0)
+          .setDepth(center.y);
+        if (this.anims.exists('incubadora_active_anim')) {
+          inc.play('incubadora_active_anim');
+        }
+        created.push(inc);
+      } else if (
+        tile.placedItemId === 'bancada_fundicao' &&
+        this.textures.exists('workbenches_animated_sheet')
+      ) {
+        const forge = this.add
+          .sprite(center.x, center.y - 6, 'workbenches_animated_sheet', 4)
+          .setDepth(center.y);
+        if (this.anims.exists('forja_active_anim')) {
+          forge.play('forja_active_anim');
+        }
+        created.push(forge);
+      } else if (
         (tile.placedItemId === 'incubadora_arcana' || tile.placedItemId === 'bancada_fundicao') &&
         this.textures.exists('creatures_fire_sheet')
       ) {
@@ -2018,6 +2146,17 @@ export class WorldScene extends Phaser.Scene {
         );
       } else if (
         tile.placedItemId === 'bancada_encantamento' &&
+        this.textures.exists('workbenches_animated_sheet')
+      ) {
+        const altar = this.add
+          .sprite(center.x, center.y - 6, 'workbenches_animated_sheet', 8)
+          .setDepth(center.y);
+        if (this.anims.exists('bancada_encantamento_active')) {
+          altar.play('bancada_encantamento_active');
+        }
+        created.push(altar);
+      } else if (
+        tile.placedItemId === 'bancada_encantamento' &&
         this.textures.exists('world_objects_sheet')
       ) {
         const altar = this.add
@@ -2027,6 +2166,17 @@ export class WorldScene extends Phaser.Scene {
           altar.play('bancada_encantamento_idle');
         }
         created.push(altar);
+      } else if (
+        tile.placedItemId === 'aspersor_bavario' &&
+        this.textures.exists('props_living_v2_sheet')
+      ) {
+        const sprinkler = this.add
+          .sprite(center.x, center.y - 2, 'props_living_v2_sheet', 0)
+          .setDepth(center.y);
+        if (this.anims.exists('aspersor_spin_anim')) {
+          sprinkler.play('aspersor_spin_anim');
+        }
+        created.push(sprinkler);
       } else if (tile.placedItemId === 'aspersor_bavario') {
         const sprinkler = this.add
           .circle(center.x, center.y, 7, 0x38bdf8, 0.9)
@@ -2511,8 +2661,61 @@ export class WorldScene extends Phaser.Scene {
     }
   }
 
+  private refreshForgeBenchMarkers(): void {
+    this.forgeReadyMarkers.forEach((marker) => marker.destroy());
+    this.forgeReadyMarkers.clear();
+    if (this.mapId !== 'fazenda') return;
+
+    for (const job of this.craftingSystem.getForgeJobs()) {
+      if (job.status !== 'ready') continue;
+      const key = makeTileKey(this.mapId, job.tileX, job.tileY);
+      const center = this.gridSystem.tileToWorldCenter(job.tileX, job.tileY);
+      const marker = this.add
+        .text(center.x, center.y - 26, '✨ Pronto!', {
+          fontSize: '10px',
+          fontStyle: 'bold',
+          color: '#fde047',
+          backgroundColor: 'rgba(15, 23, 42, 0.82)',
+          padding: { x: 4, y: 2 },
+        })
+        .setOrigin(0.5)
+        .setDepth(center.y + 40);
+      this.tweens.add({
+        targets: marker,
+        y: center.y - 31,
+        duration: 650,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+      this.forgeReadyMarkers.set(key, marker);
+    }
+  }
+
   private updateVisualAmbience(deltaMs: number): void {
     const state = gameState.getState();
+
+    // Atualiza temporizador da Forja em tempo real
+    const completedForgeJobs = this.craftingSystem.tickForgeJobs(deltaMs);
+    const hasForgingJob = this.craftingSystem.getForgeJobs().some((j) => j.status === 'forging');
+    if (completedForgeJobs.length > 0) {
+      EventBus.emit('AUDIO_PLAY_SFX', { kind: 'magic' });
+      EventBus.emit('SHOW_TOAST', {
+        message: 'Forja concluída! Interaja com a Bancada de Fundição [E] para coletar.',
+        kind: 'success',
+      });
+      EventBus.emit('FORGE_UPDATED');
+      this.refreshForgeBenchMarkers();
+      this.evaluateAndNotifyQuests();
+      this.forgeUiAccumMs = 0;
+    } else if (hasForgingJob) {
+      this.forgeUiAccumMs += deltaMs;
+      if (this.forgeUiAccumMs >= 500) {
+        this.forgeUiAccumMs = 0;
+        EventBus.emit('FORGE_UPDATED');
+      }
+    }
+
     const isNight = state.time.minuteOfDay >= 18 * 60 || state.time.minuteOfDay < 6 * 60;
 
     if (isNight !== this.wildlifeIsNight) {
@@ -2674,6 +2877,16 @@ export class WorldScene extends Phaser.Scene {
     // Movimentação autônoma viva dos Mini-Dragões e Unicórnios na Fazenda
     const petsSleep = state.time.minuteOfDay >= 20 * 60 || state.time.minuteOfDay < 6 * 60;
     const dtSec = deltaMs / 1000;
+    const activeForgingJobs =
+      this.mapId === 'fazenda'
+        ? this.craftingSystem.getForgeJobs().filter((j) => j.status === 'forging')
+        : [];
+    this.dragonForgeFireAccumMs += deltaMs;
+    const emitDragonFire = this.dragonForgeFireAccumMs >= 320;
+    if (emitDragonFire) {
+      this.dragonForgeFireAccumMs = 0;
+    }
+
     this.petSprites.forEach((pet, idx) => {
       if (!(pet instanceof Phaser.GameObjects.Sprite) || !pet.active) return;
       let homeX = pet.getData('homeX') as number | undefined;
@@ -2685,20 +2898,76 @@ export class WorldScene extends Phaser.Scene {
         pet.setData('homeY', homeY);
         pet.setData('phase', idx * 1.7 + 0.4);
       }
+
+      const assignedJob = activeForgingJobs[idx % Math.max(1, activeForgingJobs.length)];
+      if (activeForgingJobs.length > 0 && assignedJob && idx < activeForgingJobs.length) {
+        const forgeCenter = this.gridSystem.tileToWorldCenter(assignedJob.tileX, assignedJob.tileY);
+        const targetX = forgeCenter.x - 18;
+        const targetY = forgeCenter.y - 6;
+        const dx = targetX - pet.x;
+        const dy = targetY - pet.y;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist > 6) {
+          const step = Math.min(dist, 92 * dtSec);
+          pet.setPosition(pet.x + (dx / dist) * step, pet.y + (dy / dist) * step);
+          pet.setFlipX(dx < 0);
+          const moveAnim = this.anims.exists('dragon_walk_ext')
+            ? 'dragon_walk_ext'
+            : 'mini_dragon_idle';
+          if (pet.anims.currentAnim?.key !== moveAnim && this.anims.exists(moveAnim)) {
+            pet.play(moveAnim, true);
+          }
+        } else {
+          pet.setPosition(targetX, targetY + Math.sin(this.time.now * 0.008) * 2);
+          pet.setFlipX(false);
+          const workAnim = this.anims.exists('mini_dragon_idle')
+            ? 'mini_dragon_idle'
+            : 'dragon_walk_ext';
+          if (pet.anims.currentAnim?.key !== workAnim && this.anims.exists(workAnim)) {
+            pet.play(workAnim, true);
+          }
+          if (emitDragonFire) {
+            const flame = this.add
+              .circle(pet.x + 10, pet.y - 2, 3.2, 0xf97316, 0.95)
+              .setDepth(forgeCenter.y + 22);
+            this.tweens.add({
+              targets: flame,
+              x: forgeCenter.x + (Math.random() * 6 - 3),
+              y: forgeCenter.y - 8 + (Math.random() * 6 - 3),
+              scale: 1.5,
+              alpha: 0,
+              duration: 280,
+              onComplete: () => flame.destroy(),
+            });
+          }
+        }
+        pet.setDepth(pet.y + 8);
+        return;
+      }
+
       if (petsSleep) {
         if (this.anims.exists('dragon_sleep_ext') && pet.anims.currentAnim?.key !== 'dragon_sleep_ext') {
           pet.play('dragon_sleep_ext', true);
         }
         return;
       }
+
       const nextPhase = ((pet.getData('phase') as number) ?? 0) + dtSec * (0.95 + (idx % 3) * 0.22);
       pet.setData('phase', nextPhase);
       const offsetX = Math.sin(nextPhase) * 24;
       const offsetY = Math.cos(nextPhase * 0.75) * 11;
-      const vx = Math.cos(nextPhase) * 24;
-      const flying = Math.sin(nextPhase * 0.5) > 0.45;
+      const desiredX = homeX + offsetX;
+      const desiredY = homeY + offsetY;
+      const dx = desiredX - pet.x;
+      const dy = desiredY - pet.y;
+      const dist = Math.hypot(dx, dy);
+      const vx = dist > 18 ? dx : Math.cos(nextPhase) * 24;
+      const flying = dist > 18 || Math.sin(nextPhase * 0.5) > 0.45;
       const targetAnim =
-        flying && this.anims.exists('mini_dragon_idle')
+        flying && this.anims.exists('dragon_fly_side_ext')
+          ? 'dragon_fly_side_ext'
+          : flying && this.anims.exists('mini_dragon_idle')
           ? 'mini_dragon_idle'
           : this.anims.exists('dragon_walk_ext')
           ? 'dragon_walk_ext'
@@ -2707,7 +2976,12 @@ export class WorldScene extends Phaser.Scene {
         pet.play(targetAnim, true);
       }
       pet.setFlipX(vx < 0);
-      pet.setPosition(homeX + offsetX, homeY + offsetY - (flying ? 6 : 0));
+      if (dist > 18) {
+        const step = Math.min(dist, 92 * dtSec);
+        pet.setPosition(pet.x + (dx / dist) * step, pet.y + (dy / dist) * step);
+      } else {
+        pet.setPosition(desiredX, desiredY - (flying ? 6 : 0));
+      }
       pet.setDepth(pet.y + 8);
     });
 
@@ -2795,10 +3069,34 @@ export class WorldScene extends Phaser.Scene {
     const maxW = this.map.widthInPixels;
     const maxH = this.map.heightInPixels;
     const hasSheet = this.textures.exists('ambient_life_vfx_sheet');
+    const hasFaunaV2 = this.textures.exists('wildlife_fauna_v2_sheet');
 
     for (let i = 0; i < count; i++) {
       const fx = ((i * 197 + 73) % Math.max(64, maxW - 64)) + 32;
       const fy = ((i * 131 + 59) % Math.max(64, maxH - 64)) + 32;
+      if (hasFaunaV2 && i % 3 === 1) {
+        const dayFauna = ['dragonfly_hover_anim', 'butterfly_v2_fly_anim', 'sparrow_peck_anim', 'squirrel_sniff_anim', 'frog_idle_anim'] as const;
+        const faunaAnim = isNight ? 'owl_perch_anim' : (dayFauna[i % dayFauna.length] ?? 'butterfly_v2_fly_anim');
+        if (this.anims.exists(faunaAnim)) {
+          const sprite = this.add
+            .sprite(fx, fy, 'wildlife_fauna_v2_sheet')
+            .setDepth(faunaAnim === 'dragonfly_hover_anim' || faunaAnim === 'butterfly_v2_fly_anim' ? 4500 : fy);
+          sprite.play(faunaAnim);
+          this.wildlifeSprites.push(sprite);
+          if (faunaAnim === 'dragonfly_hover_anim' || faunaAnim === 'butterfly_v2_fly_anim') {
+            this.tweens.add({
+              targets: sprite,
+              x: fx + (i % 2 === 0 ? 32 : -32),
+              y: fy + (i % 3 === 0 ? -16 : 14),
+              duration: 2400 + (i % 4) * 400,
+              yoyo: true,
+              repeat: -1,
+              ease: 'Sine.easeInOut',
+            });
+          }
+          continue;
+        }
+      }
       if (hasSheet) {
         const dayAnims = ['butterfly_fly', 'sparrow_fly', 'petals_swirl'] as const;
         const animKey = isNight ? 'firefly_glow' : (dayAnims[i % dayAnims.length] ?? 'butterfly_fly');

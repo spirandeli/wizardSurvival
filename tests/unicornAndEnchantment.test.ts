@@ -22,9 +22,12 @@ describe('Fase 1 (V2): Unicórnios, Encantamentos Elementais e Ato II (2.1–2.2
     state.miniDragonsCount = 1;
     expect(crafting.craft('forjar_liga_estelar').ok).toBe(false);
 
-    // Com 3 Mini-Dragões, forja Liga Estelar e constrói Bancada de Encantamento
+    // Com 3 Mini-Dragões, forja Liga Estelar na Bancada de Fundição e constrói Bancada de Encantamento
     state.miniDragonsCount = 3;
-    expect(crafting.craft('forjar_liga_estelar').ok).toBe(true);
+    const forgeTile = { tileX: 21, tileY: 12 };
+    expect(crafting.craft('forjar_liga_estelar', forgeTile).ok).toBe(true);
+    expect(crafting.completeAllForgeJobs()).toHaveLength(1);
+    expect(crafting.collectReadyForgeJob(forgeTile.tileX, forgeTile.tileY).ok).toBe(true);
     expect(inv.countItem('liga_estelar')).toBe(1);
     expect(crafting.craft('craft_bancada_encantamento').ok).toBe(true);
     expect(inv.countItem('bancada_encantamento')).toBe(1);

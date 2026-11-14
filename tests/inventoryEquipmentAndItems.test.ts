@@ -107,4 +107,34 @@ describe('Catálogo de itens e operações de Inventário / Equipamentos', () =>
     expect(useFull.ok).toBe(false);
     expect(state.inventory[9]).toEqual({ itemId: 'pocao_mana_menor', quantity: 1 });
   });
+
+  it('organiza mochila interna, divide pilhas e descarta itens na lixeira com reembolso parcial', () => {
+    const state = createInitialGameState();
+    const inv = new InventorySystem(state);
+
+    // Hotbar intacta, mochila interna (12..23) desordenada e com pilhas separadas
+    state.inventory[12] = { itemId: 'pedra', quantity: 3 };
+    state.inventory[15] = { itemId: 'pedra', quantity: 4 };
+    state.inventory[18] = { itemId: 'pocao_mana_menor', quantity: 2 };
+
+    const sortRes = inv.sortBackpack();
+    expect(sortRes.moved).toBeGreaterThan(0);
+    // Consumível vem antes de recurso, e pedras foram empilhadas em 7
+    expect(state.inventory[12]).toEqual({ itemId: 'pocao_mana_menor', quantity: 2 });
+    expect(state.inventory[13]).toEqual({ itemId: 'pedra', quantity: 7 });
+    expect(state.inventory[15]).toBeNull();
+
+    // Dividir pilha de 7 pedras -> 4 e 3
+    const splitRes = inv.splitStack(13);
+    expect(splitRes.ok).toBe(true);
+    expect(state.inventory[13]?.quantity).toBe(4);
+    expect(state.inventory[splitRes.targetIndex!]).toEqual({ itemId: 'pedra', quantity: 3 });
+
+    // Descartar pilha na lixeira retorna ouro parcial
+    const goldBefore = state.gold;
+    const discardRes = inv.discardSlot(13, 0.15);
+    expect(discardRes.ok).toBe(true);
+    expect(state.inventory[13]).toBeNull();
+    expect(state.gold).toBeGreaterThanOrEqual(goldBefore);
+  });
 });

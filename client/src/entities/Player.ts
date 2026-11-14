@@ -92,6 +92,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
   }
 
+  isActionLocked(): boolean {
+    return this.actionTimerMs > 0;
+  }
+
   playAction(action: PlayerActionKind, itemId?: string): void {
     const isCast =
       action === 'cast' || Boolean(itemId?.startsWith('cajado_') || itemId?.startsWith('cetro_'));

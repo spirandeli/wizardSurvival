@@ -1834,3 +1834,747 @@ body,
   flex-wrap: wrap;
   gap: 8px;
 }
+
+/* ============================================================================
+   HUB UNIFICADO (Stardew Valley + Graveyard Keeper)
+   ============================================================================ */
+
+.hub-modal-card {
+  max-width: 960px;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: linear-gradient(180deg, #211b32 0%, #141020 100%);
+  border: 2px solid #c8963e;
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.8),
+    inset 0 0 0 2px rgba(90, 62, 34, 0.45),
+    inset 0 1px 0 rgba(255, 232, 179, 0.14);
+}
+
+.hub-header {
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid rgba(200, 150, 62, 0.28);
+}
+
+.hub-tabs {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.hub-tabs .modal-tab {
+  padding: 7px 12px;
+  font-size: 12.5px;
+  background: rgba(16, 13, 27, 0.72);
+  border: 1px solid rgba(200, 150, 62, 0.25);
+  transition: transform 0.12s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.hub-tabs .modal-tab:hover {
+  border-color: rgba(245, 185, 66, 0.65);
+  color: var(--text-light);
+  transform: translateY(-1px);
+}
+
+.hub-tabs .modal-tab.active {
+  background: linear-gradient(180deg, rgba(200, 150, 62, 0.32), rgba(118, 76, 36, 0.34));
+  border-color: var(--gold);
+  color: #fff6dc;
+  box-shadow: inset 0 1px 0 rgba(255, 236, 179, 0.25);
+}
+
+.hub-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.hub-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 7px;
+  background: rgba(11, 9, 19, 0.75);
+  border: 1px solid rgba(200, 150, 62, 0.3);
+  font-size: 12px;
+  color: var(--text-light);
+}
+
+.hub-body {
+  overflow-y: auto;
+  padding-right: 4px;
+  flex: 1;
+}
+
+/* Tooltip Flutuante */
+.hub-tooltip {
+  position: fixed;
+  z-index: 90;
+  pointer-events: none;
+  width: 260px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, rgba(28, 22, 43, 0.98), rgba(16, 12, 26, 0.98));
+  border: 2px solid #d49d42;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.75);
+  color: var(--text-light);
+  font-size: 12px;
+}
+
+.hub-tt-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+
+.hub-tt-head strong {
+  font-size: 13.5px;
+  color: #ffe8ad;
+}
+
+.hub-tt-cat {
+  font-size: 10.5px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: rgba(126, 140, 224, 0.2);
+  border: 1px solid rgba(126, 140, 224, 0.35);
+  color: #c7d2fe;
+}
+
+.hub-tt-desc {
+  color: var(--text-muted);
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+
+.hub-tt-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.hub-tt-stats span {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(245, 185, 66, 0.14);
+  border: 1px solid rgba(245, 185, 66, 0.3);
+  color: #fde68a;
+}
+
+.hub-tt-hint {
+  font-size: 10.5px;
+  color: #94a3b8;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 5px;
+}
+
+/* Barra de Ferramentas da Mochila & Lixeira */
+.inv-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hub-util-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  border: 1px solid rgba(200, 150, 62, 0.4);
+  background: rgba(24, 20, 38, 0.85);
+  color: var(--text-light);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.hub-util-btn:hover {
+  background: rgba(200, 150, 62, 0.22);
+  border-color: var(--gold);
+}
+
+.hub-util-btn.active {
+  background: rgba(77, 238, 234, 0.18);
+  border-color: var(--mana-color);
+  color: #ccfbf1;
+}
+
+.hub-util-btn.trash {
+  border-color: rgba(224, 82, 99, 0.45);
+  color: #fda4af;
+}
+
+.hub-util-btn.trash:hover,
+.hub-util-btn.trash.drag-over {
+  background: rgba(224, 82, 99, 0.28);
+  border-color: #fb7185;
+  color: #fff1f2;
+}
+
+/* Criação: Busca & Destaque de Prontas */
+.craft-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.craft-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.craft-search-input {
+  background: rgba(12, 10, 20, 0.85);
+  border: 1px solid rgba(200, 150, 62, 0.35);
+  border-radius: 7px;
+  padding: 6px 10px;
+  color: var(--text-light);
+  font-size: 12px;
+  width: 190px;
+  outline: none;
+}
+
+.craft-search-input:focus {
+  border-color: var(--gold);
+}
+
+.recipe-row.craft-ready {
+  border-color: rgba(245, 185, 66, 0.65);
+  background: linear-gradient(90deg, rgba(245, 185, 66, 0.08), rgba(24, 21, 38, 0.85));
+}
+
+/* Missões: Master-Detail estilo Graveyard Keeper */
+.quest-master-detail {
+  display: grid;
+  grid-template-columns: 290px 1fr;
+  gap: 14px;
+  min-height: 410px;
+}
+
+@media (max-width: 760px) {
+  .quest-master-detail {
+    grid-template-columns: 1fr;
+  }
+}
+
+.quest-list-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 8px;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  max-height: 460px;
+  overflow-y: auto;
+}
+
+.qlist-group-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gold);
+  margin: 6px 0 2px;
+  font-weight: 700;
+}
+
+.qlist-item,
+.qlist-bounty {
+  text-align: left;
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(16, 13, 26, 0.72);
+  color: var(--text-light);
+  cursor: pointer;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+
+.qlist-item:hover {
+  border-color: rgba(245, 185, 66, 0.5);
+  background: rgba(34, 28, 52, 0.9);
+}
+
+.qlist-item.selected {
+  border-color: var(--gold);
+  background: linear-gradient(180deg, rgba(200, 150, 62, 0.22), rgba(45, 34, 24, 0.32));
+}
+
+.qlist-item.status-completed {
+  opacity: 0.75;
+}
+
+.qlist-item-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 12.5px;
+  margin-bottom: 3px;
+}
+
+.qlist-status-dot {
+  color: var(--gold);
+  font-size: 12px;
+}
+
+.qlist-item.status-completed .qlist-status-dot {
+  color: #5bc26e;
+}
+
+.qlist-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qlist-pin {
+  font-size: 11px;
+}
+
+.qlist-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.qlist-collapse-btn {
+  margin-top: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px dashed rgba(148, 163, 184, 0.3);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 11.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.qlist-collapse-btn:hover {
+  color: var(--text-light);
+  border-color: var(--gold);
+}
+
+.quest-detail-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.qdetail-card {
+  background: rgba(15, 12, 25, 0.78);
+  border: 1px solid rgba(200, 150, 62, 0.35);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.qdetail-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.qdetail-portrait-wrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  border: 2px solid var(--gold);
+  background: #1b162a;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.qdetail-portrait {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  image-rendering: pixelated;
+}
+
+.qdetail-head-info {
+  flex: 1;
+  min-width: 180px;
+}
+
+.qdetail-badges {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.qdetail-kind,
+.qdetail-status {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 5px;
+}
+
+.qdetail-kind.principal {
+  background: rgba(245, 185, 66, 0.18);
+  color: #fde68a;
+  border: 1px solid rgba(245, 185, 66, 0.4);
+}
+
+.qdetail-kind.secundaria {
+  background: rgba(126, 140, 224, 0.18);
+  color: #c7d2fe;
+  border: 1px solid rgba(126, 140, 224, 0.4);
+}
+
+.qdetail-status.status-completed {
+  background: rgba(91, 194, 110, 0.18);
+  color: #86efac;
+  border: 1px solid rgba(91, 194, 110, 0.4);
+}
+
+.qdetail-status.status-active {
+  background: rgba(77, 238, 234, 0.14);
+  color: #a5f3fc;
+  border: 1px solid rgba(77, 238, 234, 0.35);
+}
+
+.qdetail-title {
+  font-size: 17px;
+  color: #fff4d6;
+}
+
+.qdetail-requester {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.qdetail-pin-btn {
+  padding: 6px 11px;
+  border-radius: 7px;
+  border: 1px solid rgba(245, 185, 66, 0.45);
+  background: rgba(245, 185, 66, 0.12);
+  color: #fde68a;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.qdetail-pin-btn.pinned {
+  background: rgba(245, 185, 66, 0.3);
+  border-color: var(--gold);
+  color: #fff;
+}
+
+.qdetail-desc {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-light);
+}
+
+.qdetail-hint-box {
+  padding: 9px 11px;
+  border-radius: 8px;
+  background: rgba(126, 140, 224, 0.1);
+  border-left: 3px solid var(--panel-border);
+  font-size: 12px;
+  color: #dbeafe;
+}
+
+.qdetail-steps-wrap h4 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.qdetail-steps {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.qdetail-steps li {
+  padding: 7px 10px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 12.5px;
+}
+
+.qdetail-steps li.done {
+  color: #86efac;
+  border-color: rgba(91, 194, 110, 0.25);
+}
+
+.qstep-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qstep-label {
+  flex: 1;
+}
+
+.qstep-count {
+  font-weight: 700;
+  font-size: 11.5px;
+  color: var(--gold);
+}
+
+.qstep-bar {
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  margin-top: 5px;
+  overflow: hidden;
+}
+
+.qstep-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f5b942, #5bc26e);
+}
+
+.qdetail-reward-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  border-radius: 8px;
+  background: rgba(245, 185, 66, 0.1);
+  border: 1px solid rgba(245, 185, 66, 0.35);
+}
+
+.qdetail-reward-label {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.qdetail-reward-val {
+  font-size: 13px;
+  color: #fde68a;
+}
+
+/* Moradores: Corações Stardew Valley */
+.villagers-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.villagers-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.villagers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(275px, 1fr));
+  gap: 10px;
+}
+
+.villager-card {
+  background: rgba(16, 13, 27, 0.8);
+  border: 1px solid rgba(200, 150, 62, 0.28);
+  border-radius: 10px;
+  padding: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.villager-card-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.villager-portrait {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  border: 2px solid rgba(200, 150, 62, 0.5);
+  background: #1f1a30;
+  object-fit: cover;
+  image-rendering: pixelated;
+  flex-shrink: 0;
+}
+
+.villager-name {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.villager-role {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-bottom: 3px;
+}
+
+.hearts-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.sdv-heart.full {
+  color: #ef4444;
+}
+
+.sdv-heart.half {
+  color: #fb923c;
+}
+
+.sdv-heart.empty {
+  color: rgba(148, 163, 184, 0.45);
+}
+
+.hearts-num {
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.villager-favs-row small {
+  display: block;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.villager-favs-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.villager-fav-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 11px;
+}
+
+.villager-milestones {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  padding-top: 6px;
+}
+
+.milestone-seal {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.milestone-seal.unlocked {
+  color: #86efac;
+}
+
+/* Grimório & Compêndio */
+.grimorio-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.grimorio-card {
+  background: rgba(16, 13, 27, 0.8);
+  border: 1px solid rgba(126, 140, 224, 0.35);
+  border-radius: 9px;
+  padding: 10px 12px;
+}
+
+.grimorio-card.blessing {
+  border-color: rgba(91, 194, 110, 0.45);
+}
+
+.grimorio-card-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 5px;
+  font-size: 13px;
+}
+
+.grimorio-key {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.grimorio-cost {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--mana-color);
+  font-weight: 700;
+}
+
+.grimorio-card p {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.compendium-chip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.compendium-chip.locked {
+  opacity: 0.45;
+  border-style: dashed;
+}
+
+/* Dock Badge & HUD Pin */
+.dock-btn {
+  position: relative;
+}
+
+.dock-dot {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f59e0b;
+  box-shadow: 0 0 8px #f59e0b;
+}
+
+.hud-quest-hint.pinned {
+  border-color: rgba(245, 185, 66, 0.75);
+}

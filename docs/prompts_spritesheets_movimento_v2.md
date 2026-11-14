@@ -57,6 +57,12 @@ Para que nenhum sprite fique menor, maior ou perca as características dos que v
 - [ ] `workbenches_animated.png` (`4×4`, `48×48` — `192×192` — Incubadora Arcana, Forja Viva, Bancada de Encantamento, Caldeirão & Bigorna)
 - [ ] `props_living_v2.png` (`4×3`, `32×32` — `128×96` — Aspersor Bávaro girando, Caixa de Envio Mágica, Fonte da Praça)
 
+### Lote E — Remasterização de Sprites de Mapas, Dungeons & Autotiles Sem Costura (`32×32`)
+- [ ] `machu_picchu_tileset.png` (`4×4`, `32×32` — `128×128` — Piso e parede Inca sem bordas repetitivas, armadilhas, cobre, estela e altar)
+- [ ] `chapada_tileset.png` (`4×4`, `32×32` — `128×128` — Ardósia úmida, paredão de quartzo sem costura, gêiser, cristais e cachoeira)
+- [ ] `varginha_tileset.png` (`4×4`, `32×32` — `128×128` — Piso e paredes de Varginha + Fortaleza de Omena sem costura)
+- [ ] `dungeons_details.png` (`4×4`, `32×32` — `128×128` — Tochas, baús, piso rachado, estela rúnica, fonte curativa e portal)
+
 ---
 
 ## 3. Lote A — Prompts dos 8 NPCs (Caminhada 4 Direções + Atividades)
@@ -340,3 +346,106 @@ Row 1 (4 frames - Bavarian Arcane Farm Sprinkler): Brass and blue-crystal standp
 Row 2 (4 frames - Magical Farm Shipping Bin): Rustic oak wood chest bound with iron and a golden sun emblem on front: Frame 1 closed, Frame 2 lid slightly open with golden coin sparkle peeking out, Frame 3 lid bouncing with floating gold sparkles, Frame 4 settling closed.
 Row 3 (4 frames - Stone Water Basin / Mini Fountain): Circular carved stone basin filled with bright blue water: 4-frame looping water ripple and sparkling cyan light reflection animation.
 ```
+
+---
+
+## 7. Lote E — Remasterização de Sprites de Mapas & Tilesets de Dungeons (`32×32`)
+
+> **Por que este lote melhora drasticamente os mapas:**
+> 1. **Correção imediata já aplicada no código (`DungeonScene.ts`):** O Phaser estava carregando os tilesets procedurais com `firstgid = 0` em vez de `1`, fazendo o piso desenhar o tile de parede com cipó (`GID 2`) e a parede desenhar a grade de espinhos (`GID 3`), além de desenhar um retângulo roxo simples para a `Estela [E]`. Isso já foi corrigido no código!
+> 2. **Remasterização visual sem costura (Prompts abaixo):** Os prompts abaixo substituem os tilesets de dungeons em `assets_raw/sprites/` para que o piso (`Tile 1`) e a parede (`Tile 2`) sejam **100% seamless (sem faixas verticais de cipó num único lado que criam listras repetitivas)** e tenham leitura top-down 3/4 de alta qualidade estilo *Sea of Stars / Chrono Trigger*.
+
+### E1. `machu_picchu_tileset.png` — Dungeon da Terra (Machu Picchu Remasterizado — `4×4`, `32×32`)
+- **Arquivo de destino:** `assets_raw/sprites/machu_picchu_tileset.png`
+- **Grade:** `4 colunas × 4 linhas` (`32×32` por tile, `128×128` final)
+- **Prompt:**
+```text
+Pixel art top-down 3/4 RPG dungeon tileset grid, 16-bit/32-bit style (Sea of Stars, Chrono Trigger, Eastward), crisp pixel clusters, no grid lines, no text, each cell is an exact 32x32 pixel tile filling its cell completely (full-bleed tiles for floors/walls, magenta #FF00FF background only around standalone props).
+Layout: 4 columns by 4 rows (16 tiles total, 32x32 pixels each):
+Row 1:
+- Col 1 (Tile 1 - Walkable Floor): Seamless ancient Inca polygonal grey-warm stone floor flagstones with tiny subtle moss specks in the crevices, low-contrast so it repeats seamlessly in a large room without grid lines.
+- Col 2 (Tile 2 - Dungeon Wall): Seamless top-down 3/4 carved Inca stone block wall with a dark stone top cap and weathered brick face, balanced horizontally so side-by-side walls form a continuous horizontal wall without vertical stripes.
+- Col 3 (Tile 3 - Floor Spike Trap): Recessed dark iron floor grate Flush with the Inca stone floor, with small retracted/short bronze-tipped spikes inside dark holes so it reads clearly as a walkable floor hazard, not a wall.
+- Col 4 (Tile 4 - Copper Ore Vein): Cracked stone boulder with glowing warm orange-copper metallic ore crystals jutting out, sitting on top of the Inca stone floor texture.
+Row 2:
+- Col 1 (Tile 5 - Stairs Down): Carved stone descending staircase recessed into the floor with warm torchlight glow coming from below.
+- Col 2 (Tile 6 - Inca Sun Altar Tile): Ornate golden sun-god relief plaque inlaid flat into the stone floor.
+- Col 3 (Tile 7 - Abyss Mist Tile): Swirling purple-grey mountain chasm mist filling the tile.
+- Col 4 (Tile 8 - Telluric Magma Crack Floor): Stone floor with glowing golden-amber earth mana cracks.
+Row 3:
+- Col 1 (Tile 9 - Carved Floor Tablet): Weathered Inca stone floor slab with geometric gold runes.
+- Col 2 (Tile 10 - Stone Fire Brazier): Ancient carved stone bowl brazier with warm burning orange flame on stone floor base.
+- Col 3 (Tile 11 - Inca Stone Guardian Statue): Small weathered stone idol totem on stone floor base.
+- Col 4 (Tile 12 - Sun Mural Wall): Inca stone wall tile with a carved golden sun emblem in the center.
+Row 4:
+- Col 1 (Tile 13 - Stone Archway): Mossy carved Inca stone portal archway.
+- Col 2 (Tile 14 - Amber Crystal Pedestal): Stone pedestal holding a glowing golden earth crystal.
+- Col 3 (Tile 15 - Inca Treasure Chest): Heavy wood and gold-trimmed Inca chest.
+- Col 4 (Tile 16 - Ancient Lore Stela): Tall carved stone monolith tablet with glowing emerald-cyan Inca runes.
+```
+
+### E2. `chapada_tileset.png` — Dungeon das Águas (Chapada dos Veadeiros Remasterizado — `4×4`, `32×32`)
+- **Arquivo de destino:** `assets_raw/sprites/chapada_tileset.png`
+- **Grade:** `4 colunas × 2 linhas` (`32×32` por tile, `128×64` final — mantendo compatibilidade exata com `chapada_tileset`)
+- **Prompt:**
+```text
+Pixel art top-down 3/4 RPG water canyon dungeon tileset grid, 16-bit/32-bit style (Sea of Stars, Chrono Trigger), crisp pixel art, no grid lines, no text, full-bleed 32x32 tiles.
+Layout: 4 columns by 2 rows (8 tiles total, 32x32 pixels each):
+Row 1:
+- Col 1 (Tile 1 - Walkable Floor): Seamless dark teal-slate wet canyon stone floor tiles with subtle smooth stone joints and tiny emerald moss specks, low-contrast for seamless tiling across rooms.
+- Col 2 (Tile 2 - Canyon Wall): Seamless top-down 3/4 dark mossy canyon rock wall with subtle glowing cyan quartz veins, horizontally continuous without harsh vertical seams.
+- Col 3 (Tile 3 - Shallow Water / Geyser Hazard): Crystal-clear turquoise shallow water tile over slate floor with bubbling cyan water rings and lily pads.
+- Col 4 (Tile 4 - Quartz Ore Node): Cluster of glowing cyan-blue raw quartz crystals growing out of wet dark slate floor (full 32x32 tile with dark slate floor base, no white corners).
+Row 2:
+- Col 1 (Tile 5 - Spiral Water Stairs): Carved teal stone spiral staircase descending into glowing aqua light.
+- Col 2 (Tile 6 - Harmonic Water Rune Floor): Glowing cyan geometric diamond magic circle inlaid into the wet slate floor.
+- Col 3 (Tile 7 - Canyon Waterfall Wall): Mossy rock wall with a sparkling cyan waterfall cascading down the center into mist.
+- Col 4 (Tile 8 - Ancient Bridge / Altar Slab): Carved stone sanctuary floor slab with glowing blue water channels on top and bottom edges.
+```
+
+### E3. `varginha_tileset.png` — Dungeon dos Céus & Fortaleza de Omena (`4×4`, `32×32`)
+- **Arquivo de destino:** `assets_raw/sprites/varginha_tileset.png`
+- **Grade:** `4 colunas × 4 linhas` (`32×32` por tile, `128×128` final)
+- **Prompt:**
+```text
+Pixel art top-down 3/4 RPG astral & dark-fortress dungeon tileset grid, 16-bit/32-bit style (Sea of Stars, Chrono Trigger), crisp pixel art, no grid lines, no text, full-bleed 32x32 tiles.
+Layout: 4 columns by 4 rows (16 tiles total, 32x32 pixels each):
+Row 1 (Varginha Sky Ruins):
+- Col 1 (Tile 1 - Sky Floor): Seamless dark indigo-slate smooth stone floor with subtle star-dust speckles, low contrast for clean room tiling.
+- Col 2 (Tile 2 - Sky Wall): Seamless top-down 3/4 dark metallic-stone wall with glowing mint-emerald geometric circuit runes.
+- Col 3 (Tile 3 - Lightning Floor Hazard): Dark stone floor tile with glowing electric cyan-violet plasma cracks Flush with the ground.
+- Col 4 (Tile 4 - Star Alloy / Crystal Node): Glowing golden and cyan astral crystals jutting from dark indigo stone floor.
+Row 2 (Varginha Portals & Architecture):
+- Col 1 (Tile 5 - Astral Stairs Down): Glowing neon-violet and cyan stepped staircase descending.
+- Col 2 (Tile 6 - Celestial Rune Circle): Ornate blue-gold astrolabe magic circle inlaid in the floor.
+- Col 3 (Tile 7 - Stormy Sky Chasm): Deep indigo night clouds with distant purple lightning.
+- Col 4 (Tile 8 - Sanctuary Ring Floor): Dark stone floor framed by a circular golden-cyan metallic border.
+Row 3 (Fortaleza de Omena - Abyssal Palace):
+- Col 1 (Tile 9 - Omena Floor): Seamless dark obsidian-plum palace floor tile with subtle royal gold filigree lines, low contrast so large rooms look smooth and regal.
+- Col 2 (Tile 10 - Omena Wall): Seamless top-down 3/4 black-violet obsidian wall with glowing magenta abyssal runes.
+- Col 3 (Tile 11 - Abyssal Rift Hazard): Obsidian floor cracked open with glowing crimson-magenta void energy.
+- Col 4 (Tile 12 - Core Conduit Floor): Ornate gold and glowing cyan energy conduit inlaid in obsidian stone.
+Row 4 (Fortaleza de Omena Portals & Sanctum):
+- Col 1 (Tile 13 - Abyssal Portal Arch / Stairs): Swirling purple-magenta dimensional vortex archway with steps.
+- Col 2 (Tile 14 - Eclipse Altar Seal): Royal purple and gold star-eclipse magic seal inlaid in the floor.
+- Col 3 (Tile 15 - Void Starfield Chasm): Deep cosmic void with purple nebula flames and stars.
+- Col 4 (Tile 16 - World Core Dais): Golden stepped pedestal radiating a bright cyan-gold orb of light.
+```
+
+### E4. `dungeons_details.png` — Props, Estelas, Fontes & Detalhes de Dungeon (`4×4`, `32×32`)
+- **Arquivo de destino:** `assets_raw/sprites/dungeons_details.png`
+- **Grade:** `4 colunas × 4 linhas` (`32×32` por célula, `128×128` final)
+- **Prompt:**
+```text
+Pixel art top-down RPG dungeon props and animated details sprite sheet, 16-bit/32-bit style (Sea of Stars), crisp 1px dark outlines (#14121d), solid flat magenta background (#FF00FF), no grid lines, no text.
+Layout: 4 columns by 4 rows grid (16 cells total, 32x32 pixels each):
+Row 1 (4 frames - Wall Torch Animation): Medieval iron wall sconce torch with a 4-frame flickering bright orange-yellow fire flame animation.
+Row 2 (4 frames - Treasure Chest Opening Animation): Ornate wood and gold dungeon chest: Frame 1 closed locked, Frame 2 lid cracking open with golden light, Frame 3 lid swinging open with sparkles, Frame 4 fully open revealing gold coins and gems.
+Row 3 (4 static dungeon props):
+- Col 1: Subtle cracked stone floor decal with tiny moss tufts.
+- Col 2: Ancient painted clay amphora pot (breakable dungeon pot).
+- Col 3: Reinforced wooden supply crate with iron corners (breakable crate).
+- Col 4: Carved stone Lore Stela / Rune Monolith with glowing cyan-violet inscriptions (for Estela [E]).
+Row 4 (4 frames - Exit Portal Pad Animation): Circular stone rune pad on the floor with a 4-frame pulsing cyan-purple magical teleportation aura.
+```
+

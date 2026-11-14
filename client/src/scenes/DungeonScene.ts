@@ -42,10 +42,10 @@ interface DungeonThemeConfig {
   bossKind: EnemyKind;
   bossLabel: string;
   blessedFlag:
-    | 'earth_guardian_blessed'
-    | 'water_guardian_blessed'
-    | 'sky_guardian_blessed'
-    | 'omena_defeated';
+  | 'earth_guardian_blessed'
+  | 'water_guardian_blessed'
+  | 'sky_guardian_blessed'
+  | 'omena_defeated';
   projectileTexture: string;
   element: ElementType;
   floorHint: string;
@@ -174,6 +174,7 @@ export class DungeonScene extends Phaser.Scene {
   private omenaLastPhase: 1 | 2 | 3 = 1;
   private activeTrapGid: number = MACHU_GID.TRAP;
   private activeOreGid: number = MACHU_GID.ORE;
+  private oreHpMap = new Map<string, number>();
 
   private attackKey: Phaser.Input.Keyboard.Key | null = null;
   private spellKey: Phaser.Input.Keyboard.Key | null = null;
@@ -204,14 +205,14 @@ export class DungeonScene extends Phaser.Scene {
     tileY: number;
     loreId: string;
     read: boolean;
-    visual: Phaser.GameObjects.Rectangle;
+    visual: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image | Phaser.GameObjects.Rectangle;
     label: Phaser.GameObjects.Text;
   }[] = [];
   private fountainNodes: {
     tileX: number;
     tileY: number;
     used: boolean;
-    visual: Phaser.GameObjects.Ellipse;
+    visual: Phaser.GameObjects.Sprite | Phaser.GameObjects.Ellipse;
     label: Phaser.GameObjects.Text;
   }[] = [];
   private attackCooldownMs = 0;
@@ -311,6 +312,15 @@ export class DungeonScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    const completedForgeJobs = this.craftingSystem.tickForgeJobs(delta);
+    if (completedForgeJobs.length > 0) {
+      EventBus.emit('AUDIO_PLAY_SFX', { kind: 'magic' });
+      EventBus.emit('SHOW_TOAST', {
+        message: 'Forja na fazenda concluída! Colete na Bancada de Fundição [E].',
+        kind: 'success',
+      });
+      EventBus.emit('FORGE_UPDATED');
+    }
     if (this.isExiting) return;
 
     if (this.attackCooldownMs > 0) this.attackCooldownMs = Math.max(0, this.attackCooldownMs - delta);
@@ -485,7 +495,15 @@ export class DungeonScene extends Phaser.Scene {
       width: layout.width,
       height: layout.height,
     });
-    const tileset = map.addTilesetImage(tileCfg.tilesetKey, tileCfg.tilesetKey);
+    const tileset = map.addTilesetImage(
+      tileCfg.tilesetKey,
+      tileCfg.tilesetKey,
+      TILE_SIZE,
+      TILE_SIZE,
+      0,
+      0,
+      1
+    );
     if (!tileset) throw new Error('Tileset não carregado.');
 
     const ground = map.createBlankLayer('Chao', tileset);
@@ -546,12 +564,12 @@ export class DungeonScene extends Phaser.Scene {
       const pos = this.gridSystem.tileToWorldCenter(chest.tileX, chest.tileY);
       const visual = hasDetailSheet
         ? this.add
-            .sprite(pos.x, pos.y - 2, 'dungeons_details_sheet', DUNGEON_DETAIL_FRAMES.CHEST_CLOSED)
-            .setDepth(pos.y)
+          .sprite(pos.x, pos.y - 2, 'dungeons_details_sheet', DUNGEON_DETAIL_FRAMES.CHEST_CLOSED)
+          .setDepth(pos.y)
         : this.add
-            .rectangle(pos.x, pos.y, 18, 14, 0x7c4d2b, 0.95)
-            .setStrokeStyle(2, 0xf5b942, 1)
-            .setDepth(pos.y);
+          .rectangle(pos.x, pos.y, 18, 14, 0x7c4d2b, 0.95)
+          .setStrokeStyle(2, 0xf5b942, 1)
+          .setDepth(pos.y);
       const label = this.add
         .text(pos.x, pos.y - 18, 'Baú [E]', {
           fontSize: '10px',
@@ -623,12 +641,24 @@ export class DungeonScene extends Phaser.Scene {
     for (const totem of layout.loreTotems) {
       const pos = this.gridSystem.tileToWorldCenter(totem.tileX, totem.tileY);
       const alreadyRead = Boolean(gameState.getState().compendium?.loreRead.includes(totem.loreId));
-      const visual = this.add
-        .rectangle(pos.x, pos.y - 2, 12, 22, alreadyRead ? 0x334155 : 0x2b2640, 0.96)
-        .setStrokeStyle(2, alreadyRead ? 0x64748b : 0x7e8ce0, 1)
-        .setDepth(pos.y);
+      const visual = this.textures.exists('crystal_pillars_sheet')
+        ? this.add
+          .sprite(pos.x, pos.y - 6, 'crystal_pillars_sheet', alreadyRead ? 0 : 3)
+          .setTint(alreadyRead ? 0x94a3b8 : 0xffffff)
+          .setDepth(pos.y)
+        : this.add
+          .rectangle(pos.x, pos.y - 2, 12, 22, alreadyRead ? 0x334155 : 0x2b2640, 0.96)
+          .setStrokeStyle(2, alreadyRead ? 0x64748b : 0x7e8ce0, 1)
+          .setDepth(pos.y);
+      if (
+        !alreadyRead &&
+        visual instanceof Phaser.GameObjects.Sprite &&
+        this.anims.exists('crystal_pillar_pulse')
+      ) {
+        visual.play('crystal_pillar_pulse');
+      }
       const label = this.add
-        .text(pos.x, pos.y - 18, alreadyRead ? 'Estela (Lida)' : 'Estela [E]', {
+        .text(pos.x, pos.y - 22, alreadyRead ? 'Estela (Lida)' : 'Estela [E]', {
           fontSize: '10px',
           color: alreadyRead ? '#94a3b8' : '#c7d2fe',
           backgroundColor: '#1b1726',
@@ -642,12 +672,21 @@ export class DungeonScene extends Phaser.Scene {
 
     for (const fount of layout.healingFountains) {
       const pos = this.gridSystem.tileToWorldCenter(fount.tileX, fount.tileY);
-      const visual = this.add
-        .ellipse(pos.x, pos.y + 2, 20, 14, 0x38bdf8, 0.72)
-        .setStrokeStyle(2, 0x5bc26e, 0.95)
-        .setDepth(pos.y);
+      let visual: Phaser.GameObjects.Sprite | Phaser.GameObjects.Ellipse;
+      if (this.textures.exists('omena_world_props_sheet') && this.anims.exists('nucleo_mundo_pulse')) {
+        visual = this.add
+          .sprite(pos.x, pos.y - 2, 'omena_world_props_sheet', 0)
+          .setScale(0.72)
+          .setDepth(pos.y);
+        visual.play('nucleo_mundo_pulse');
+      } else {
+        visual = this.add
+          .ellipse(pos.x, pos.y + 2, 20, 14, 0x38bdf8, 0.72)
+          .setStrokeStyle(2, 0x5bc26e, 0.95)
+          .setDepth(pos.y);
+      }
       const label = this.add
-        .text(pos.x, pos.y - 14, 'Fonte [E]', {
+        .text(pos.x, pos.y - 18, 'Fonte [E]', {
           fontSize: '10px',
           color: '#67e8f9',
           backgroundColor: '#1b1726',
@@ -710,7 +749,15 @@ export class DungeonScene extends Phaser.Scene {
         width: sourceMap.width,
         height: sourceMap.height,
       });
-      const themedTileset = themedMap.addTilesetImage(tileCfg.tilesetKey, tileCfg.tilesetKey);
+      const themedTileset = themedMap.addTilesetImage(
+        tileCfg.tilesetKey,
+        tileCfg.tilesetKey,
+        TILE_SIZE,
+        TILE_SIZE,
+        0,
+        0,
+        1
+      );
       if (!themedTileset) throw new Error('Tileset temático da arena não carregado.');
 
       chao = themedMap.createBlankLayer('Chao', themedTileset);
@@ -958,9 +1005,9 @@ export class DungeonScene extends Phaser.Scene {
       this.damagePlayer(Math.round(enemy.stats.physicalDamage * scale), scaledElem);
     });
 
-    this.physics.add.overlap(this.playerProjectiles, this.enemies, (projObj, eObj) => {
-      const proj = projObj as Phaser.Physics.Arcade.Image;
-      const enemy = eObj as Enemy;
+    this.physics.add.overlap(this.playerProjectiles, this.enemies, (obj1, obj2) => {
+      const enemy = obj1 instanceof Enemy ? obj1 : (obj2 as Enemy);
+      const proj = (obj1 instanceof Enemy ? obj2 : obj1) as Phaser.Physics.Arcade.Image;
       if (!proj.active || !enemy.active) return;
 
       const hitSet = proj.getData('hitEnemies') as Set<Enemy> | undefined;
@@ -1022,11 +1069,18 @@ export class DungeonScene extends Phaser.Scene {
       this.inventorySystem.selectHotbarSlot(index);
       EventBus.emit('INVENTORY_UPDATED', { selectedIndex: gameState.getState().selectedHotbarIndex });
     };
-    const onCraft = ({ recipeId }: { recipeId: string }) => {
-      const res = this.craftingSystem.craft(recipeId);
+    const onCraft = ({
+      recipeId,
+      forgeTile,
+    }: {
+      recipeId: string;
+      forgeTile?: { tileX: number; tileY: number };
+    }) => {
+      const res = this.craftingSystem.craft(recipeId, forgeTile);
       EventBus.emit('AUDIO_PLAY_SFX', { kind: res.ok ? 'craft' : 'error' });
       EventBus.emit('SHOW_TOAST', { message: res.message, kind: res.ok ? 'success' : 'error' });
       EventBus.emit('INVENTORY_UPDATED', { selectedIndex: gameState.getState().selectedHotbarIndex });
+      EventBus.emit('FORGE_UPDATED');
     };
     const onEquipItem = ({ itemId, fromSlot }: { itemId: string; fromSlot?: number }) => {
       const state = gameState.getState();
@@ -1211,18 +1265,18 @@ export class DungeonScene extends Phaser.Scene {
     const useWaterBolt =
       Boolean(
         weaponDef?.elementTheme === 'agua' ||
-          typeof weaponDef?.elementalDamage?.agua === 'number' ||
-          weaponDef?.id.includes('aguas') ||
-          weaponDef?.id.includes('mar')
+        typeof weaponDef?.elementalDamage?.agua === 'number' ||
+        weaponDef?.id.includes('aguas') ||
+        weaponDef?.id.includes('mar')
       ) &&
       this.textures.exists('combat_vfx_b_sheet') &&
       this.anims.exists('water_bolt_anim');
     const useWindBolt =
       Boolean(
         weaponDef?.elementTheme === 'ar' ||
-          typeof weaponDef?.elementalDamage?.ar === 'number' ||
-          weaponDef?.id.includes('ceus') ||
-          weaponDef?.id.includes('vento')
+        typeof weaponDef?.elementalDamage?.ar === 'number' ||
+        weaponDef?.id.includes('ceus') ||
+        weaponDef?.id.includes('vento')
       ) &&
       this.textures.exists('combat_vfx_b_sheet') &&
       this.anims.exists('wind_bolt_anim');
@@ -1232,8 +1286,8 @@ export class DungeonScene extends Phaser.Scene {
     const boltAnim = useWaterBolt
       ? 'water_bolt_anim'
       : useWindBolt
-      ? 'wind_bolt_anim'
-      : 'arcane_bolt_anim';
+        ? 'wind_bolt_anim'
+        : 'arcane_bolt_anim';
 
     const bolt = this.playerProjectiles.create(
       this.player.x + dir.x * 16,
@@ -1582,8 +1636,8 @@ export class DungeonScene extends Phaser.Scene {
             ? 'quartzo_bruto'
             : 'minerio_cobre'
           : Math.random() < 0.5
-          ? 'pedra'
-          : 'minerio_cobre';
+            ? 'pedra'
+            : 'minerio_cobre';
         this.inventorySystem.addItem(drop, 1);
         EventBus.emit('INVENTORY_UPDATED', { selectedIndex: gameState.getState().selectedHotbarIndex });
       }
@@ -1720,7 +1774,12 @@ export class DungeonScene extends Phaser.Scene {
         const qs = new QuestSystem(state, this.inventorySystem);
         const firstRead = qs.recordLoreRead(lore.loreId);
         lore.read = true;
-        lore.visual.setFillStyle(0x334155, 0.96).setStrokeStyle(2, 0x64748b, 1);
+        if (lore.visual instanceof Phaser.GameObjects.Rectangle) {
+          lore.visual.setFillStyle(0x334155, 0.96).setStrokeStyle(2, 0x64748b, 1);
+        } else {
+          if (lore.visual instanceof Phaser.GameObjects.Sprite) lore.visual.stop();
+          lore.visual.setTint(0x94a3b8);
+        }
         lore.label.setText('Estela (Lida)').setColor('#94a3b8');
         if (firstRead) {
           this.manaSystem.restoreMana(15);
@@ -1760,7 +1819,12 @@ export class DungeonScene extends Phaser.Scene {
       const center = this.gridSystem.tileToWorldCenter(fount.tileX, fount.tileY);
       if (Phaser.Math.Distance.Between(feet.x, feet.y, center.x, center.y) <= 44) {
         fount.used = true;
-        fount.visual.setFillStyle(0x334155, 0.45).setStrokeStyle(1, 0x64748b, 0.7);
+        if (fount.visual instanceof Phaser.GameObjects.Ellipse) {
+          fount.visual.setFillStyle(0x334155, 0.45).setStrokeStyle(1, 0x64748b, 0.7);
+        } else {
+          fount.visual.stop();
+          fount.visual.setTint(0x64748b).setAlpha(0.55);
+        }
         fount.label.setText('Fonte (Seca)').setColor('#94a3b8');
         const state = gameState.getState();
         state.vitals.hp = Math.min(state.vitals.maxHp, state.vitals.hp + 35);
@@ -1776,22 +1840,38 @@ export class DungeonScene extends Phaser.Scene {
       }
     }
 
-    // Mineração simplificada de veios de minério
+    // Mineração de veios de minério com múltiplos golpes
     const colTile = this.collisionLayer?.getTileAt(target.tileX, target.tileY);
     if (colTile && colTile.index === this.activeOreGid) {
+      if (this.player.isActionLocked()) return;
       const state = gameState.getState();
-      if (state.vitals.stamina < 3) {
+      if (state.vitals.stamina < 2) {
         EventBus.emit('SHOW_TOAST', { message: 'Stamina insuficiente para minerar!', kind: 'error' });
         return;
       }
-      state.vitals.stamina -= 3;
+      state.vitals.stamina -= 2;
       this.player.playAction('swing', 'picareta_simples');
+      EventBus.emit('VITALS_UPDATED', { vitals: state.vitals });
+
+      const oreKey = `${this.floor}_${target.tileX}_${target.tileY}`;
+      const baseHp = 3 - (state.flags.tools_upgraded_bento ? 1 : 0);
+      const currentHp = this.oreHpMap.get(oreKey) ?? Math.max(1, baseHp);
+      const nextHp = currentHp - 1;
+      const oreCenter = this.gridSystem.tileToWorldCenter(target.tileX, target.tileY);
+
+      if (nextHp > 0) {
+        this.oreHpMap.set(oreKey, nextHp);
+        this.showFloatingNumber(oreCenter.x, oreCenter.y - 12, '⛏️', '#fbbf24');
+        EventBus.emit('AUDIO_PLAY_SFX', { kind: 'interact' });
+        return;
+      }
+
+      this.oreHpMap.delete(oreKey);
       this.collisionLayer?.removeTileAt(target.tileX, target.tileY);
       const oreItem = Math.random() < 0.55 ? 'minerio_cobre' : 'quartzo_bruto';
       const yieldQty = state.flags.tools_upgraded_bento ? 3 : 2;
       this.inventorySystem.addItem(oreItem, yieldQty);
       EventBus.emit('AUDIO_PLAY_SFX', { kind: 'craft' });
-      EventBus.emit('VITALS_UPDATED', { vitals: state.vitals });
       EventBus.emit('INVENTORY_UPDATED', { selectedIndex: state.selectedHotbarIndex });
       EventBus.emit('SHOW_TOAST', {
         message: `Minerou ${yieldQty}x ${oreItem === 'minerio_cobre' ? 'Minério de Cobre' : 'Quartzo Bruto'}!`,

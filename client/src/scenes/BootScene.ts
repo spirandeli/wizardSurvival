@@ -182,6 +182,71 @@ export class BootScene extends Phaser.Scene {
       frameWidth: TILE_SIZE,
       frameHeight: TILE_SIZE,
     });
+
+    // Lotes v2: Movimentação de NPCs, Atividades, Inimigos/Chefes Ext, Companheiros, Pets, Fauna e Bancadas
+    for (const npcId of [
+      'celeste',
+      'bento',
+      'isis',
+      'lyra',
+      'seu_zeca',
+      'prefeito_arlindo',
+      'seu_damiao',
+      'rafael',
+    ]) {
+      this.load.spritesheet(`npc_${npcId}_move_sheet`, `/assets/sprites/npc_${npcId}_move.png`, {
+        frameWidth: 48,
+        frameHeight: 48,
+      });
+    }
+    this.load.spritesheet('npcs_activities_part2_sheet', '/assets/sprites/npcs_activities_part2.png', {
+      frameWidth: 48,
+      frameHeight: 48,
+    });
+    this.load.spritesheet('enemies_earth_ext_sheet', '/assets/sprites/enemies_earth_ext.png', {
+      frameWidth: 48,
+      frameHeight: 48,
+    });
+    this.load.spritesheet('enemies_crystal_sky_ext_sheet', '/assets/sprites/enemies_crystal_sky_ext.png', {
+      frameWidth: 48,
+      frameHeight: 48,
+    });
+    this.load.spritesheet('enemies_omena_ext_sheet', '/assets/sprites/enemies_omena_ext.png', {
+      frameWidth: 48,
+      frameHeight: 48,
+    });
+    this.load.spritesheet('boss_earth_guardian_ext_sheet', '/assets/sprites/boss_earth_guardian_ext.png', {
+      frameWidth: 64,
+      frameHeight: 64,
+    });
+    this.load.spritesheet('bosses_elemental_ext_sheet', '/assets/sprites/bosses_elemental_ext.png', {
+      frameWidth: 64,
+      frameHeight: 64,
+    });
+    this.load.spritesheet('boss_omena_ext_sheet', '/assets/sprites/boss_omena_ext.png', {
+      frameWidth: 64,
+      frameHeight: 64,
+    });
+    this.load.spritesheet('companions_ext_sheet', '/assets/sprites/companions_ext.png', {
+      frameWidth: 48,
+      frameHeight: 48,
+    });
+    this.load.spritesheet('pets_movement_ext_sheet', '/assets/sprites/pets_movement_ext.png', {
+      frameWidth: 48,
+      frameHeight: 48,
+    });
+    this.load.spritesheet('wildlife_fauna_v2_sheet', '/assets/sprites/wildlife_fauna_v2.png', {
+      frameWidth: 32,
+      frameHeight: 32,
+    });
+    this.load.spritesheet('workbenches_animated_sheet', '/assets/sprites/workbenches_animated.png', {
+      frameWidth: 48,
+      frameHeight: 48,
+    });
+    this.load.spritesheet('props_living_v2_sheet', '/assets/sprites/props_living_v2.png', {
+      frameWidth: 32,
+      frameHeight: 32,
+    });
   }
 
   create(): void {
@@ -1517,6 +1582,77 @@ export class BootScene extends Phaser.Scene {
       ensureAnim('owl_perch_anim', 'wildlife_fauna_v2_sheet', [12, 13], 3, -1);
       ensureAnim('owl_fly_anim', 'wildlife_fauna_v2_sheet', [14, 15], 8, -1);
       ensureAnim('sparrow_peck_anim', 'wildlife_fauna_v2_sheet', [16, 17, 18, 17], 6, -1);
+      ensureAnim('dragonfly_hover_anim', 'wildlife_fauna_v2_sheet', [20, 21], 10, -1);
+      ensureAnim('butterfly_v2_fly_anim', 'wildlife_fauna_v2_sheet', [22, 23], 8, -1);
+    }
+
+    if (this.textures.exists('companions_ext_sheet')) {
+      ensureAnim('remo_walk_ext', 'companions_ext_sheet', [0, 1, 2, 3], 7, -1);
+      ensureAnim('remo_groom_ext', 'companions_ext_sheet', [4, 5, 4], 4, 0);
+      ensureAnim('remo_pounce_ext', 'companions_ext_sheet', [6], 6, 0);
+      ensureAnim('remo_sleep_ext', 'companions_ext_sheet', [7], 2, -1);
+      ensureAnim('lupin_flip_ext', 'companions_ext_sheet', [8, 9, 10, 11], 8, -1);
+      ensureAnim('lupin_fly_ext', 'companions_ext_sheet', [12, 13], 6, -1);
+      ensureAnim('lupin_compass_ext', 'companions_ext_sheet', [14, 15], 5, 0);
+    }
+
+    if (this.textures.exists('pets_movement_ext_sheet')) {
+      ensureAnim('dragon_walk_down_ext', 'pets_movement_ext_sheet', [0, 1], 6, -1);
+      ensureAnim('dragon_walk_up_ext', 'pets_movement_ext_sheet', [2, 3], 6, -1);
+      ensureAnim('dragon_fly_side_ext', 'pets_movement_ext_sheet', [4, 5, 6, 7], 8, -1);
+      ensureAnim('unicorn_walk_down_ext', 'pets_movement_ext_sheet', [8, 9], 6, -1);
+      ensureAnim('unicorn_walk_up_ext', 'pets_movement_ext_sheet', [10, 11], 6, -1);
+      ensureAnim('unicorn_gallop_side_ext', 'pets_movement_ext_sheet', [12, 13, 14, 15], 9, -1);
+    }
+
+    if (this.textures.exists('enemies_earth_ext_sheet')) {
+      ensureAnim('golem_walk_up_ext', 'enemies_earth_ext_sheet', [0, 1, 2, 3], 7, -1);
+      ensureAnim('golem_slam_ext', 'enemies_earth_ext_sheet', [4, 5, 6, 7], 9, 0);
+      ensureAnim('wisp_dash_ext', 'enemies_earth_ext_sheet', [8, 9, 10, 11], 9, 0);
+      ensureAnim('wisp_death_ext', 'enemies_earth_ext_sheet', [12, 13, 14, 15], 9, 0);
+    }
+
+    if (this.textures.exists('enemies_crystal_sky_ext_sheet')) {
+      ensureAnim('serpente_walk_down_ext', 'enemies_crystal_sky_ext_sheet', [0, 1], 6, -1);
+      ensureAnim('serpente_walk_up_ext', 'enemies_crystal_sky_ext_sheet', [2, 3], 6, -1);
+      ensureAnim('serpente_lunge_ext', 'enemies_crystal_sky_ext_sheet', [4, 5, 6, 7], 10, 0);
+      ensureAnim('sonda_tilt_ext', 'enemies_crystal_sky_ext_sheet', [8, 9, 10, 11], 7, -1);
+      ensureAnim('sonda_overcharge_ext', 'enemies_crystal_sky_ext_sheet', [12, 13, 14, 15], 10, 0);
+    }
+
+    if (this.textures.exists('enemies_omena_ext_sheet')) {
+      ensureAnim('sentinela_walk_down_ext', 'enemies_omena_ext_sheet', [0, 1, 2, 3], 7, -1);
+      ensureAnim('sentinela_walk_up_ext', 'enemies_omena_ext_sheet', [4, 5, 6, 7], 7, -1);
+      ensureAnim('sentinela_blink_ext', 'enemies_omena_ext_sheet', [8, 9, 10, 11], 10, 0);
+      ensureAnim('sentinela_nova_ext', 'enemies_omena_ext_sheet', [12, 13, 14, 15], 10, 0);
+    }
+
+    if (this.textures.exists('boss_earth_guardian_ext_sheet')) {
+      ensureAnim('boss_earth_walk_down_ext', 'boss_earth_guardian_ext_sheet', [0, 1, 2], 6, -1);
+      ensureAnim('boss_earth_walk_up_ext', 'boss_earth_guardian_ext_sheet', [3, 4, 5], 6, -1);
+      ensureAnim('boss_earth_quake_ext', 'boss_earth_guardian_ext_sheet', [6, 7, 8, 9], 8, 0);
+      ensureAnim('boss_earth_stagger_ext', 'boss_earth_guardian_ext_sheet', [10], 6, 0);
+      ensureAnim('boss_earth_purified_ext', 'boss_earth_guardian_ext_sheet', [11], 4, -1);
+    }
+
+    if (this.textures.exists('bosses_elemental_ext_sheet')) {
+      ensureAnim('boss_water_surge_ext', 'bosses_elemental_ext_sheet', [0, 1], 7, -1);
+      ensureAnim('boss_water_walk_up_ext', 'bosses_elemental_ext_sheet', [2, 3], 6, -1);
+      ensureAnim('boss_water_whirlpool_ext', 'bosses_elemental_ext_sheet', [4], 8, 0);
+      ensureAnim('boss_water_hurt_ext', 'bosses_elemental_ext_sheet', [5], 8, 0);
+      ensureAnim('boss_sky_swoop_ext', 'bosses_elemental_ext_sheet', [6, 7], 8, -1);
+      ensureAnim('boss_sky_walk_up_ext', 'bosses_elemental_ext_sheet', [8, 9], 7, -1);
+      ensureAnim('boss_sky_storm_ext', 'bosses_elemental_ext_sheet', [10], 8, 0);
+      ensureAnim('boss_sky_purified_ext', 'bosses_elemental_ext_sheet', [11], 4, -1);
+    }
+
+    if (this.textures.exists('boss_omena_ext_sheet')) {
+      ensureAnim('omena_glide_side_ext', 'boss_omena_ext_sheet', [0, 1], 7, -1);
+      ensureAnim('omena_walk_up_ext', 'boss_omena_ext_sheet', [2, 3], 7, -1);
+      ensureAnim('omena_teleport_ext', 'boss_omena_ext_sheet', [4, 5], 9, 0);
+      ensureAnim('omena_cataclysm_ext', 'boss_omena_ext_sheet', [6, 7, 8], 9, 0);
+      ensureAnim('omena_stagger_ext', 'boss_omena_ext_sheet', [9], 6, 0);
+      ensureAnim('omena_dissolve_ext', 'boss_omena_ext_sheet', [10, 11], 5, 0);
     }
   }
 }

@@ -119,6 +119,18 @@ export interface CompendiumState {
   loreRead: string[];
 }
 
+export interface ForgeJob {
+  id: string;
+  recipeId: string;
+  outputItemId: string;
+  outputQuantity: number;
+  tileX: number;
+  tileY: number;
+  totalDurationMs: number;
+  remainingMs: number;
+  status: 'forging' | 'ready';
+}
+
 export interface GameStateSnapshot {
   version: number;
   mapId: string;
@@ -140,11 +152,13 @@ export interface GameStateSnapshot {
   unicorns: UnicornCreature[];
   enchantments: EnchantmentState;
   questStates: Record<string, { status: 'locked' | 'active' | 'completed'; progress: number }>;
+  pinnedQuestId?: string;
   npcAffinity: Record<string, number>;
   flags: Record<string, boolean>;
   dailyBounties?: { dayKey: string; items: ActiveBounty[] };
   houseLevel?: 1 | 2 | 3;
   compendium?: CompendiumState;
+  forgeJobs?: ForgeJob[];
 }
 
 export interface SaveRecord {

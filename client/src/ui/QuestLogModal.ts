@@ -2,14 +2,12 @@ import { EventBus } from '../core/EventBus';
 import { gameState } from '../core/GameState';
 import { getCropDef } from '../data/crops';
 import { getItemDef } from '../data/items';
-import { getNpcList } from '../data/npcs';
-import { QUESTS } from '../data/quests';
+import { getNpcList, NPCS } from '../data/npcs';
+import { QUESTS, type QuestDefinition } from '../data/quests';
 import { InventorySystem } from '../systems/InventorySystem';
 import { ManaSystem, SPELLS } from '../systems/ManaSystem';
 import { QuestSystem } from '../systems/QuestSystem';
 import { renderItemIconHtml } from './ItemIcon';
-
-type QuestTab = 'missoes' | 'moradores' | 'grimorio' | 'compendio';
 
 const ENEMY_LABELS: Record<string, string> = {
   golem_pedra: 'Golem de Pedra',
@@ -23,239 +21,427 @@ const ENEMY_LABELS: Record<string, string> = {
   omena: 'Omena, Tecelão das Sombras',
 };
 
-export class QuestLogModal {
-  private root: HTMLElement;
-  private isOpen = false;
-  private activeTab: QuestTab = 'missoes';
+function renderHeartsHtml(affinity: number): string {
+  const clamped = Math.max(0, Math.min(100, affinity));
+  const hearts: string[] = [];
+  for (let i = 0; i < 10; i++) {
+    const threshold = (i + 1) * 10;
+    const halfThreshold = i * 10 + 5;
+    if (clamped >= threshold) {
+      hearts.push('<span class="sdv-heart full" aria-hidden="true">♥</span>');
+    } else if (clamped >= halfThreshold) {
+      hearts.push('<span class="sdv-heart half" aria-hidden="true">♥</span>');
+    } else {
+      hearts.push('<span class="sdv-heart empty" aria-hidden="true">♡</span>');
+    }
+  }
+  return `<div class="hearts-row" title="Afinidade: ${clamped}/100">${hearts.join('')}<span class="hearts-num">${clamped}/100</span></div>`;
+}
 
-  constructor(parent: HTMLElement) {
-    this.root = document.createElement('div');
-    this.root.id = 'quest-modal';
-    this.root.className = 'modal-overlay ui-interactive';
-    this.root.style.display = 'none';
-    parent.appendChild(this.root);
+export interface QuestsTabViewState {
+  selectedQuestId: string | null;
+  showCompleted: boolean;
+}
 
-    EventBus.on('OPEN_QUEST_MODAL', () => {
-      if (this.isOpen) {
-        this.close();
-        return;
+export function renderHubQuestsTab(viewState: QuestsTabViewState): string {
+  const state = gameState.getState();
+  const inv = new InventorySystem(state);
+  const qs = new QuestSystem(state, inv);
+
+  const visibleQuests = QUESTS.filter((q) => qs.getStatus(q.id) !== 'locked');
+  const activeQuests = visibleQuests.filter((q) => qs.getStatus(q.id) === 'active');
+  const completedQuests = visibleQuests.filter((q) => qs.getStatus(q.id) === 'completed');
+
+  const activeMain = activeQuests.filter((q) => q.kind === 'principal');
+  const activeSide = activeQuests.filter((q) => q.kind === 'secundaria');
+  const bounties = state.dailyBounties?.items ?? [];
+
+  // Garante seleção válida
+  let selectedQuest: QuestDefinition | undefined = visibleQuests.find(
+    (q) => q.id === viewState.selectedQuestId
+  );
+  if (!selectedQuest) {
+    selectedQuest =
+      activeQuests.find((q) => q.id === state.pinnedQuestId) ??
+      activeMain[0] ??
+      activeQuests[0] ??
+      completedQuests[0];
+    if (selectedQuest) {
+      viewState.selectedQuestId = selectedQuest.id;
+    }
+  }
+
+  const renderListEntry = (q: QuestDefinition) => {
+    const status = qs.getStatus(q.id);
+    const steps = qs.getStepProgress(q.id);
+    const doneSteps = steps.filter((s) => s.done).length;
+    const isSelected = selectedQuest?.id === q.id;
+    const isPinned = state.pinnedQuestId === q.id && status === 'active';
+    const npc = q.requesterNpcId ? NPCS[q.requesterNpcId] : undefined;
+    const originLabel = npc ? npc.name : q.kind === 'principal' ? 'Campanha Principal' : 'Vila';
+
+    return `
+      <button type="button" class="qlist-item status-${status} ${isSelected ? 'selected' : ''}" data-quest-select="${q.id}">
+        <div class="qlist-item-top">
+          <span class="qlist-status-dot">${status === 'completed' ? '✓' : '✦'}</span>
+          <span class="qlist-title">${q.title}</span>
+          ${isPinned ? '<span class="qlist-pin" title="Fixada no HUD">📌</span>' : ''}
+        </div>
+        <div class="qlist-meta">
+          <span>${originLabel}</span>
+          <span>${doneSteps}/${steps.length} etapas</span>
+        </div>
+      </button>
+    `;
+  };
+
+  const bountiesHtml =
+    bounties.length > 0
+      ? `
+      <div class="qlist-group-label">Contratos do Quadro (Hoje)</div>
+      ${bounties
+        .map((b) => {
+          const npcName = NPCS[b.npcId]?.name ?? b.npcId;
+          return `
+            <div class="qlist-bounty ${b.completed ? 'done' : ''}">
+              <div class="qlist-item-top">
+                <span class="qlist-status-dot">${b.completed ? '✓' : '📜'}</span>
+                <span class="qlist-title">${b.title}</span>
+              </div>
+              <div class="qlist-meta">
+                <span>${npcName}</span>
+                <span>${b.progress}/${b.targetQty} • ${b.rewardGold} G</span>
+              </div>
+            </div>
+          `;
+        })
+        .join('')}
+    `
+      : '';
+
+  let detailHtml = `
+    <div class="qdetail-empty">
+      <p>Nenhuma missão descoberta ainda. Converse com os moradores com (!) ou explore a fazenda.</p>
+    </div>
+  `;
+
+  if (selectedQuest) {
+    const status = qs.getStatus(selectedQuest.id);
+    const steps = qs.getStepProgress(selectedQuest.id);
+    const isPinned = state.pinnedQuestId === selectedQuest.id;
+    const npc = selectedQuest.requesterNpcId ? NPCS[selectedQuest.requesterNpcId] : undefined;
+    const portraitKey = npc?.id ?? (selectedQuest.kind === 'principal' ? 'lupin' : 'prefeito_arlindo');
+    const requesterName = npc ? `${npc.name} — ${npc.role}` : 'Grimório de Lupin • Campanha';
+
+    detailHtml = `
+      <div class="qdetail-card">
+        <div class="qdetail-header">
+          <div class="qdetail-portrait-wrap">
+            <img src="/assets/portraits/${portraitKey}.png" alt="${requesterName}" class="qdetail-portrait" onerror="this.style.display='none'" />
+          </div>
+          <div class="qdetail-head-info">
+            <div class="qdetail-badges">
+              <span class="qdetail-kind ${selectedQuest.kind}">${
+                selectedQuest.kind === 'principal' ? '★ História Principal' : '📜 Missão da Vila'
+              }</span>
+              <span class="qdetail-status status-${status}">${
+                status === 'completed' ? '✓ Concluída' : '✦ Em Andamento'
+              }</span>
+            </div>
+            <h3 class="qdetail-title">${selectedQuest.title}</h3>
+            <div class="qdetail-requester">${requesterName}</div>
+          </div>
+          ${
+            status === 'active'
+              ? `<button type="button" class="qdetail-pin-btn ${isPinned ? 'pinned' : ''}" data-pin-quest="${selectedQuest.id}" title="${
+                  isPinned ? 'Remover fixação do HUD' : 'Acompanhar esta missão no HUD'
+                }">
+                  ${isPinned ? '📌 Fixada no HUD' : '📌 Fixar no HUD'}
+                </button>`
+              : ''
+          }
+        </div>
+
+        <p class="qdetail-desc">${selectedQuest.description}</p>
+
+        <div class="qdetail-hint-box">
+          <strong>Pista Atual:</strong> ${selectedQuest.objectiveHint}
+        </div>
+
+        <div class="qdetail-steps-wrap">
+          <h4>Objetivos</h4>
+          <ul class="qdetail-steps">
+            ${steps
+              .map((s) => {
+                const pct = s.target > 0 ? Math.min(100, Math.round((s.current / s.target) * 100)) : 0;
+                return `
+                  <li class="${s.done ? 'done' : ''}">
+                    <div class="qstep-row">
+                      <span class="qstep-check">${s.done ? '✓' : '○'}</span>
+                      <span class="qstep-label">${s.label}</span>
+                      ${s.target > 1 ? `<span class="qstep-count">${s.current}/${s.target}</span>` : ''}
+                    </div>
+                    ${
+                      s.target > 1
+                        ? `<div class="qstep-bar"><div class="qstep-bar-fill" style="width:${pct}%"></div></div>`
+                        : ''
+                    }
+                  </li>
+                `;
+              })
+              .join('')}
+          </ul>
+        </div>
+
+        <div class="qdetail-reward-box">
+          <span class="qdetail-reward-label">Recompensa</span>
+          <strong class="qdetail-reward-val">🎁 ${selectedQuest.rewardText}</strong>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="quest-master-detail">
+      <aside class="quest-list-col">
+        ${
+          activeMain.length > 0
+            ? `<div class="qlist-group-label">Campanha Principal</div>${activeMain.map(renderListEntry).join('')}`
+            : ''
+        }
+        ${
+          activeSide.length > 0
+            ? `<div class="qlist-group-label">Missões da Cidade</div>${activeSide.map(renderListEntry).join('')}`
+            : ''
+        }
+        ${
+          activeQuests.length === 0
+            ? '<p class="quest-empty">Nenhuma missão ativa no momento. Explore e fale com os moradores!</p>'
+            : ''
+        }
+        ${bountiesHtml}
+        ${
+          completedQuests.length > 0
+            ? `
+            <button type="button" class="qlist-collapse-btn" id="qlist-toggle-completed">
+              ${viewState.showCompleted ? '▾' : '▸'} Concluídas (${completedQuests.length})
+            </button>
+            ${viewState.showCompleted ? completedQuests.map(renderListEntry).join('') : ''}
+          `
+            : ''
+        }
+      </aside>
+      <section class="quest-detail-col">
+        ${detailHtml}
+      </section>
+    </div>
+  `;
+}
+
+export function renderHubVillagersTab(sortByAffinity: boolean): string {
+  const state = gameState.getState();
+  const list = [...getNpcList()];
+  if (sortByAffinity) {
+    list.sort((a, b) => (state.npcAffinity[b.id] ?? 0) - (state.npcAffinity[a.id] ?? 0));
+  } else {
+    list.sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+  }
+
+  const cardsHtml = list
+    .map((npc) => {
+      const aff = state.npcAffinity[npc.id] ?? 0;
+      const has25 = Boolean(state.flags[`npc_milestone_${npc.id}_25`]);
+      const has50 = Boolean(state.flags[`npc_perk_${npc.id}_50`]);
+      const favHtml = npc.favoriteItems
+        .slice(0, 3)
+        .map((id) => {
+          const def = getItemDef(id);
+          return `<span class="villager-fav-chip" title="${def?.name ?? id}">${renderItemIconHtml(id, 18)}<span>${def?.name ?? id}</span></span>`;
+        })
+        .join('');
+
+      return `
+        <div class="villager-card">
+          <div class="villager-card-top">
+            <img src="/assets/portraits/${npc.id}.png" alt="${npc.name}" class="villager-portrait" onerror="this.style.display='none'" />
+            <div class="villager-info">
+              <div class="villager-name" style="color:${npc.portraitColor}">${npc.name}</div>
+              <div class="villager-role">${npc.role}</div>
+              ${renderHeartsHtml(aff)}
+            </div>
+          </div>
+          <div class="villager-favs-row">
+            <small>Presentes Favoritos:</small>
+            <div class="villager-favs-chips">${favHtml}</div>
+          </div>
+          <div class="villager-milestones">
+            <span class="milestone-seal ${has25 ? 'unlocked' : ''}">${has25 ? '✓' : '○'} 25♥ ${npc.milestones.affinity25Title}</span>
+            <span class="milestone-seal ${has50 ? 'unlocked' : ''}">${has50 ? '✓' : '○'} 50♥ ${npc.milestones.affinity50PerkSummary}</span>
+          </div>
+        </div>
+      `;
+    })
+    .join('');
+
+  return `
+    <div class="villagers-toolbar">
+      <span class="villagers-sub">Moradores de São Tomé dos Números (${list.length}) — Presenteie com [G] para aumentar corações</span>
+      <button type="button" class="hub-util-btn" id="villagers-sort-btn">
+        ${sortByAffinity ? '♥ Ordenado por Afinidade' : 'A–Z Ordenado por Nome'}
+      </button>
+    </div>
+    <div class="villagers-grid">${cardsHtml}</div>
+  `;
+}
+
+export function renderHubGrimorioTab(): string {
+  const state = gameState.getState();
+  const manaSys = new ManaSystem(state);
+
+  const spellsHtml =
+    state.unlockedSpells.length === 0
+      ? '<p class="quest-empty">Desperte o grimório Lupin no porão para aprender suas primeiras leis cósmicas.</p>'
+      : state.unlockedSpells
+          .map((id) => {
+            const s = SPELLS[id];
+            const cost = manaSys.getSpellCost(id);
+            return `
+              <div class="grimorio-card">
+                <div class="grimorio-card-head">
+                  <kbd class="grimorio-key">${s?.hotkey ?? '?'}</kbd>
+                  <strong>${s?.name ?? id}</strong>
+                  <span class="grimorio-cost">${cost} Mana</span>
+                </div>
+                <p>${s?.description ?? ''}</p>
+              </div>
+            `;
+          })
+          .join('');
+
+  const blessings: { icon: string; title: string; desc: string }[] = [];
+  if (state.flags.earth_guardian_blessed) {
+    blessings.push({ icon: '🌿', title: 'Bênção da Terra', desc: 'Crescimento automático de safras na fazenda.' });
+  }
+  if (state.flags.water_guardian_blessed) {
+    blessings.push({ icon: '💧', title: 'Bênção das Águas', desc: 'Rega automática diária nas plantações.' });
+  }
+  if (state.flags.sky_guardian_blessed) {
+    blessings.push({ icon: '🌪️', title: 'Maestria dos Ventos', desc: '+20 Mana Máxima, -25% custo de magia e +velocidade.' });
+  }
+  if (state.flags.endgame_unlocked) {
+    blessings.push({ icon: '★', title: 'Guardião do Núcleo', desc: 'Modo Endgame ativo em São Tomé dos Números.' });
+  }
+  if ((state.houseLevel ?? 1) > 1) {
+    blessings.push({ icon: '🏠', title: `Moradia Nível ${state.houseLevel}/3`, desc: 'Casa ampliada com espaço extra.' });
+  }
+
+  const blessingsHtml =
+    blessings.length === 0
+      ? '<p class="quest-empty">Liberte os Guardiões elementais nos portais do porão para despertar bênçãos permanentes.</p>'
+      : blessings
+          .map(
+            (b) => `
+          <div class="grimorio-card blessing">
+            <div class="grimorio-card-head">
+              <span class="blessing-icon">${b.icon}</span>
+              <strong>${b.title}</strong>
+            </div>
+            <p>${b.desc}</p>
+          </div>
+        `
+          )
+          .join('');
+
+  return `
+    <h3 class="quest-section-title">Bênçãos dos Guardiões &amp; Moradia</h3>
+    <div class="grimorio-grid">${blessingsHtml}</div>
+    <h3 class="quest-section-title">Magias Aprendidas</h3>
+    <div class="grimorio-grid">${spellsHtml}</div>
+  `;
+}
+
+export function renderHubCompendioTab(): string {
+  const state = gameState.getState();
+  const comp = state.compendium ?? {
+    enemiesDefeated: {},
+    fishesCaught: {},
+    cropsHarvested: {},
+    loreRead: [],
+  };
+
+  const allEnemyKeys = Object.keys(ENEMY_LABELS);
+  const discoveredEnemies = allEnemyKeys.filter((k) => (comp.enemiesDefeated[k] ?? 0) > 0).length;
+  const fishEntries = Object.entries(comp.fishesCaught);
+  const cropEntries = Object.entries(comp.cropsHarvested);
+
+  const totalKills = Object.values(comp.enemiesDefeated).reduce((acc, n) => acc + n, 0);
+  const totalFish = fishEntries.reduce((acc, [, n]) => acc + n, 0);
+  const totalCrops = cropEntries.reduce((acc, [, n]) => acc + n, 0);
+
+  return `
+    <div class="compendium-stats-row">
+      <span class="badge-pill">⚔️ Bestiário: ${discoveredEnemies}/${allEnemyKeys.length} (${totalKills} abates)</span>
+      <span class="badge-pill">🎣 Peixes: ${totalFish} (${fishEntries.length} espécies)</span>
+      <span class="badge-pill">🌱 Colheitas: ${totalCrops} (${cropEntries.length} tipos)</span>
+      <span class="badge-pill">🗿 Estelas Lidas: ${comp.loreRead.length}</span>
+    </div>
+
+    <h3 class="quest-section-title">Bestiário de São Tomé &amp; Portais</h3>
+    <div class="compendium-grid">
+      ${allEnemyKeys
+        .map((k) => {
+          const kills = comp.enemiesDefeated[k] ?? 0;
+          const unlocked = kills > 0;
+          return `
+            <div class="compendium-chip ${unlocked ? 'unlocked' : 'locked'}">
+              <span>${unlocked ? `⚔️ ${ENEMY_LABELS[k]}` : '❓ Criatura Desconhecida'}</span>
+              <strong>${unlocked ? `${kills}×` : '???'}</strong>
+            </div>
+          `;
+        })
+        .join('')}
+    </div>
+
+    <h3 class="quest-section-title">Pescaria &amp; Safras Catalogadas</h3>
+    <div class="compendium-grid">
+      ${
+        fishEntries.length === 0 && cropEntries.length === 0
+          ? '<p class="quest-empty">Pesque nos rios e colha na fazenda para catalogar espécies.</p>'
+          : [
+              ...fishEntries.map(([id, n]) => {
+                const def = getItemDef(id);
+                return `<div class="compendium-chip unlocked"><span>${renderItemIconHtml(id, 18)} ${def?.name ?? id}</span><strong>${n}×</strong></div>`;
+              }),
+              ...cropEntries.map(([id, n]) => {
+                const crop = getCropDef(id);
+                const def = crop ? getItemDef(crop.harvestItemId) : getItemDef(id);
+                return `<div class="compendium-chip unlocked"><span>${renderItemIconHtml(def?.id ?? id, 18)} ${def?.name ?? crop?.name ?? id}</span><strong>${n}×</strong></div>`;
+              }),
+            ].join('')
       }
-      this.open();
-    });
+    </div>
+  `;
+}
 
-    EventBus.on('QUESTS_UPDATED', () => {
-      if (this.isOpen) this.render();
+/**
+ * Ponte de compatibilidade: `OPEN_QUEST_MODAL` abre o Hub unificado na aba de Missões.
+ */
+export class QuestLogModal {
+  constructor(_parent: HTMLElement) {
+    EventBus.on('OPEN_QUEST_MODAL', () => {
+      EventBus.emit('OPEN_INVENTORY_MODAL', { tab: 'missoes' });
     });
   }
 
   open(): void {
-    this.isOpen = true;
-    this.root.style.display = 'flex';
-    this.render();
+    EventBus.emit('OPEN_INVENTORY_MODAL', { tab: 'missoes' });
   }
 
   close(): void {
-    this.isOpen = false;
-    this.root.style.display = 'none';
+    // Controlado pelo Hub unificado (InventoryModal)
   }
 
   destroy(): void {
-    this.root.remove();
-  }
-
-  private render(): void {
-    const state = gameState.getState();
-    const inv = new InventorySystem(state);
-    const qs = new QuestSystem(state, inv);
-
-    const mainQuests = QUESTS.filter((q) => q.kind === 'principal');
-    const sideQuests = QUESTS.filter((q) => q.kind === 'secundaria');
-
-    const renderQuestItem = (q: (typeof QUESTS)[number]) => {
-      const status = qs.getStatus(q.id);
-      if (status === 'locked') return '';
-      const badge = status === 'completed' ? '✓ Concluída' : '✦ Em Andamento';
-      const steps = status === 'active' ? qs.getStepProgress(q.id) : [];
-      const stepsHtml =
-        steps.length > 0
-          ? `<ul class="quest-steps-list">${steps
-            .map(
-              (s) =>
-                `<li class="${s.done ? 'done' : ''}">${s.done ? '✓' : '○'} ${s.label}${s.target > 1 ? ` (${s.current}/${s.target})` : ''
-                }</li>`
-            )
-            .join('')}</ul>`
-          : '';
-      return `
-        <div class="quest-row status-${status}">
-          <div class="quest-top">
-            <span class="quest-title">${q.title}</span>
-            <span class="quest-badge">${badge}</span>
-          </div>
-          <p class="quest-desc">${q.description}</p>
-          ${stepsHtml}
-          <p class="quest-reward">Recompensa: ${q.rewardText}</p>
-        </div>
-      `;
-    };
-
-    const sideHtml = sideQuests.map(renderQuestItem).join('');
-
-    const manaSys = new ManaSystem(state);
-    const spellsHtml =
-      state.unlockedSpells.length === 0
-        ? '<p class="quest-empty">Desperte o grimório Lupin no porão para aprender suas primeiras leis cósmicas.</p>'
-        : state.unlockedSpells
-          .map((id) => {
-            const s = SPELLS[id];
-            const cost = manaSys.getSpellCost(id);
-            return `<div class="spell-chip">✦ <kbd>${s?.hotkey ?? '?'}</kbd> <strong>${s?.name ?? id}</strong> (${cost} Mana): ${s?.description ?? ''
-              }</div>`;
-          })
-          .join('');
-
-    const blessings: string[] = [];
-    if (state.flags.earth_guardian_blessed) blessings.push('🌿 Bênção da Terra (crescimento automático)');
-    if (state.flags.water_guardian_blessed) blessings.push('💧 Bênção das Águas (rega automática)');
-    if (state.flags.sky_guardian_blessed) blessings.push('🌪️ Maestria dos Ventos (+20 Mana, -25% custo, +velocidade)');
-    if (state.flags.endgame_unlocked) blessings.push('★ Modo Endgame — Guardião do Núcleo de São Tomé');
-    if ((state.houseLevel ?? 1) > 1) {
-      blessings.push(`🏠 Moradia Nível ${state.houseLevel}/3 ampliada`);
-    }
-
-    const blessingsHtml =
-      blessings.length === 0
-        ? '<p class="quest-empty">Liberte os Guardiões elementais nos portais do porão para despertar bênçãos permanentes.</p>'
-        : blessings.map((b) => `<div class="spell-chip">${b}</div>`).join('');
-
-    const villagersHtml = getNpcList()
-      .map((npc) => {
-        const aff = state.npcAffinity[npc.id] ?? 0;
-        const pct = Math.min(100, aff);
-        const favs = npc.favoriteItems
-          .map((id) => getItemDef(id)?.name ?? id)
-          .slice(0, 3)
-          .join(', ');
-        const has25 = Boolean(state.flags[`npc_milestone_${npc.id}_25`]);
-        const has50 = Boolean(state.flags[`npc_perk_${npc.id}_50`]);
-        return `
-          <div class="quest-row">
-            <div class="quest-top">
-              <span class="quest-title" style="color:${npc.portraitColor}">${npc.name} <small style="color:var(--text-muted);font-weight:400;">— ${npc.role}</small></span>
-              <span class="quest-badge">♥ ${aff}/100</span>
-            </div>
-            <div class="npc-aff-bar"><div class="npc-aff-fill" style="width:${pct}%"></div></div>
-            <p class="quest-desc">Presentes favoritos: ${favs}</p>
-            <p class="quest-reward">
-              ${has25 ? '✓' : '○'} 25♥ Segredo: ${npc.milestones.affinity25Title} ·
-              ${has50 ? '✓' : '○'} 50♥ Vantagem: ${npc.milestones.affinity50PerkSummary}
-            </p>
-          </div>
-        `;
-      })
-      .join('');
-
-    const comp = state.compendium ?? {
-      enemiesDefeated: {},
-      fishesCaught: {},
-      cropsHarvested: {},
-      loreRead: [],
-    };
-    const enemyEntries = Object.entries(comp.enemiesDefeated);
-    const fishEntries = Object.entries(comp.fishesCaught);
-    const cropEntries = Object.entries(comp.cropsHarvested);
-
-    const totalKills = enemyEntries.reduce((acc, [, n]) => acc + n, 0);
-    const totalFish = fishEntries.reduce((acc, [, n]) => acc + n, 0);
-    const totalCrops = cropEntries.reduce((acc, [, n]) => acc + n, 0);
-
-    const compendiumHtml = `
-      <div class="compendium-stats-row">
-        <span class="badge-pill">⚔️ Inimigos: ${totalKills}</span>
-        <span class="badge-pill">🎣 Peixes: ${totalFish}</span>
-        <span class="badge-pill">🌱 Colheitas: ${totalCrops}</span>
-        <span class="badge-pill">🗿 Estelas Lidas: ${comp.loreRead.length}</span>
-      </div>
-      <h3 class="quest-section-title">Bestiário Derrotado</h3>
-      <div class="compendium-grid">
-        ${enemyEntries.length === 0
-        ? '<p class="quest-empty">Nenhuma criatura registrada ainda.</p>'
-        : enemyEntries
-          .map(([k, n]) => `<div class="compendium-chip">⚔️ ${ENEMY_LABELS[k] ?? k}: <strong>${n}</strong></div>`)
-          .join('')
-      }
-      </div>
-      <h3 class="quest-section-title">Pescaria &amp; Safras</h3>
-      <div class="compendium-grid">
-        ${fishEntries.length === 0 && cropEntries.length === 0
-        ? '<p class="quest-empty">Pesque nos rios e colha na fazenda para catalogar espécies.</p>'
-        : [
-          ...fishEntries.map(([id, n]) => {
-            const def = getItemDef(id);
-            return `<div class="compendium-chip">${renderItemIconHtml(id, 18)} ${def?.name ?? id}: <strong>${n}</strong></div>`;
-          }),
-          ...cropEntries.map(([id, n]) => {
-            const crop = getCropDef(id);
-            const def = crop ? getItemDef(crop.harvestItemId) : getItemDef(id);
-            return `<div class="compendium-chip">${renderItemIconHtml(def?.id ?? id, 18)} ${def?.name ?? crop?.name ?? id}: <strong>${n}</strong></div>`;
-          }),
-        ].join('')
-      }
-      </div>
-    `;
-
-    let bodyHtml = '';
-    if (this.activeTab === 'missoes') {
-      bodyHtml = `
-        <h3 class="quest-section-title">Campanha Principal — Atos I, II &amp; III</h3>
-        <div class="quest-list">${mainQuests.map(renderQuestItem).join('')}</div>
-        <h3 class="quest-section-title">Missões da Cidade (Secundárias)</h3>
-        <div class="quest-list">${sideHtml ||
-        '<p class="quest-empty">Converse com os moradores marcados com (!) ou visite o Quadro de Avisos na Praça de São Tomé para descobrir tarefas da vila.</p>'
-        }</div>
-      `;
-    } else if (this.activeTab === 'moradores') {
-      bodyHtml = `
-        <h3 class="quest-section-title">Moradores de São Tomé dos Números</h3>
-        <div class="quest-list">${villagersHtml}</div>
-      `;
-    } else if (this.activeTab === 'grimorio') {
-      bodyHtml = `
-        <h3 class="quest-section-title">Bênçãos dos Guardiões, Casa &amp; Endgame</h3>
-        <div class="quest-list">${blessingsHtml}</div>
-        <h3 class="quest-section-title">Magias Aprendidas</h3>
-        <div class="quest-list">${spellsHtml}</div>
-      `;
-    } else {
-      bodyHtml = compendiumHtml;
-    }
-
-    this.root.innerHTML = `
-      <div class="modal-card">
-        <div class="modal-header">
-          <h2 class="tp-title">Grimório de Lupin &amp; Diário</h2>
-          <button type="button" id="quest-close-btn" class="modal-close">✕</button>
-        </div>
-        <div class="modal-tabs">
-          <button type="button" class="tab-btn ${this.activeTab === 'missoes' ? 'active' : ''}" data-qtab="missoes">📜 Missões</button>
-          <button type="button" class="tab-btn ${this.activeTab === 'moradores' ? 'active' : ''}" data-qtab="moradores">♥ Moradores</button>
-          <button type="button" class="tab-btn ${this.activeTab === 'grimorio' ? 'active' : ''}" data-qtab="grimorio">✦ Grimório</button>
-          <button type="button" class="tab-btn ${this.activeTab === 'compendio' ? 'active' : ''}" data-qtab="compendio">📖 Compêndio</button>
-        </div>
-        <div class="quest-tab-body">${bodyHtml}</div>
-      </div>
-    `;
-
-    this.root.querySelector('#quest-close-btn')?.addEventListener('click', () => this.close());
-    this.root.querySelectorAll<HTMLButtonElement>('[data-qtab]').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const next = btn.dataset.qtab as QuestTab | undefined;
-        if (next) {
-          this.activeTab = next;
-          this.render();
-        }
-      });
-    });
+    // Sem elemento próprio no DOM
   }
 }
-

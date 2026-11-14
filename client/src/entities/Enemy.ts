@@ -16,6 +16,8 @@ interface EnemyStats {
   texture: string;
   sheetKey: string;
   idleAnim: string;
+  walkUpAnim?: string;
+  walkDownAnim?: string;
   windupAnim?: string;
   attackAnim?: string;
   hurtAnim?: string;
@@ -36,6 +38,7 @@ const ENEMY_CONFIGS: Record<EnemyKind, EnemyStats> = {
     texture: 'enemy_golem_pedra',
     sheetKey: 'enemy_golem_sheet',
     idleAnim: 'golem_walk',
+    walkUpAnim: 'golem_walk_up_ext',
     windupAnim: 'golem_windup',
     attackAnim: 'golem_smash',
     hurtAnim: 'golem_hurt',
@@ -66,6 +69,8 @@ const ENEMY_CONFIGS: Record<EnemyKind, EnemyStats> = {
     texture: 'enemy_serpente_cristal',
     sheetKey: 'enemy_serpente_sheet',
     idleAnim: 'serpente_idle',
+    walkUpAnim: 'serpente_walk_up_ext',
+    walkDownAnim: 'serpente_walk_down_ext',
     windupAnim: 'serpente_windup',
     attackAnim: 'serpente_attack',
     hurtAnim: 'serpente_hurt',
@@ -99,6 +104,8 @@ const ENEMY_CONFIGS: Record<EnemyKind, EnemyStats> = {
     texture: 'boss_guardiao_terra',
     sheetKey: 'boss_earth_guardian_sheet',
     idleAnim: 'boss_earth_idle',
+    walkUpAnim: 'boss_earth_walk_up_ext',
+    walkDownAnim: 'boss_earth_walk_down_ext',
     windupAnim: 'boss_earth_windup',
     attackAnim: 'boss_earth_attack',
     hurtAnim: 'boss_earth_hurt',
@@ -117,6 +124,8 @@ const ENEMY_CONFIGS: Record<EnemyKind, EnemyStats> = {
     texture: 'boss_guardiao_aguas',
     sheetKey: 'boss_water_guardian_sheet',
     idleAnim: 'boss_water_idle',
+    walkUpAnim: 'boss_water_walk_up_ext',
+    walkDownAnim: 'boss_water_surge_ext',
     windupAnim: 'boss_water_windup',
     attackAnim: 'boss_water_attack',
     hurtAnim: 'boss_water_hurt',
@@ -135,6 +144,8 @@ const ENEMY_CONFIGS: Record<EnemyKind, EnemyStats> = {
     texture: 'boss_guardiao_ceus',
     sheetKey: 'boss_sky_guardian_sheet',
     idleAnim: 'boss_sky_idle',
+    walkUpAnim: 'boss_sky_walk_up_ext',
+    walkDownAnim: 'boss_sky_swoop_ext',
     windupAnim: 'boss_sky_windup',
     attackAnim: 'boss_sky_attack',
     hurtAnim: 'boss_sky_hurt',
@@ -153,6 +164,8 @@ const ENEMY_CONFIGS: Record<EnemyKind, EnemyStats> = {
     texture: 'enemy_sentinela_omena',
     sheetKey: 'enemy_sentinela_sheet',
     idleAnim: 'sentinela_idle',
+    walkUpAnim: 'sentinela_walk_up_ext',
+    walkDownAnim: 'sentinela_walk_down_ext',
     windupAnim: 'sentinela_windup',
     attackAnim: 'sentinela_attack',
     hurtAnim: 'sentinela_hurt',
@@ -171,6 +184,8 @@ const ENEMY_CONFIGS: Record<EnemyKind, EnemyStats> = {
     texture: 'boss_omena',
     sheetKey: 'boss_omena_sheet',
     idleAnim: 'omena_idle',
+    walkUpAnim: 'omena_walk_up_ext',
+    walkDownAnim: 'omena_glide_side_ext',
     windupAnim: 'omena_windup',
     attackAnim: 'omena_attack',
     hurtAnim: 'omena_hurt',
@@ -301,6 +316,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       if (this.useSpriteSheet && Math.abs(dx) > 6) {
         this.setFlipX(dx < 0);
       }
+      this.updateDirectionalAnim(vx, vy);
     } else {
       // Autonomous patrol around spawn point when player is out of aggro range
       this.patrolTimerMs -= deltaMs;
@@ -327,8 +343,10 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         if (this.useSpriteSheet && Math.abs(pvx) > 4) {
           this.setFlipX(pvx < 0);
         }
+        this.updateDirectionalAnim(pvx, pvy);
       } else {
         body.setVelocity(0, 0);
+        this.updateDirectionalAnim(0, 0);
       }
     }
 
@@ -370,6 +388,27 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     }
 
     this.setDepth(this.y);
+  }
+
+  private updateDirectionalAnim(vx: number, vy: number): void {
+    if (!this.useSpriteSheet || this.isDying) return;
+    const cur = this.anims.currentAnim?.key;
+    if (
+      cur === this.stats.windupAnim ||
+      cur === this.stats.attackAnim ||
+      cur === this.stats.hurtAnim
+    ) {
+      return;
+    }
+    let desired = this.stats.idleAnim;
+    if (vy < -10 && Math.abs(vy) >= Math.abs(vx) * 0.75 && this.stats.walkUpAnim) {
+      desired = this.stats.walkUpAnim;
+    } else if (vy > 10 && Math.abs(vy) >= Math.abs(vx) * 0.75 && this.stats.walkDownAnim) {
+      desired = this.stats.walkDownAnim;
+    }
+    if (cur !== desired && this.scene.anims.exists(desired)) {
+      this.play(desired, true);
+    }
   }
 
   playWindupOnce(): void {
