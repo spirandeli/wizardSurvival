@@ -8,8 +8,9 @@ import { ManaSystem } from '../client/src/systems/ManaSystem.js';
 import { QuestSystem } from '../client/src/systems/QuestSystem.js';
 
 describe('Plano V2 — Fase 2 (Chapada, Varginha, Bênçãos e Missões)', () => {
-  it('gera andares da Chapada dos Veadeiros com 3 cristais alcançáveis em ordem (1 -> 2 -> 3)', () => {
-    for (let floor = 1; floor <= 3; floor++) {
+  it('gera 10 andares da Chapada dos Veadeiros com 3 cristais alcançáveis em ordem (1 -> 2 -> 3) e novas criaturas', () => {
+    const kinds = new Set<string>();
+    for (let floor = 1; floor <= 10; floor++) {
       const layout = generateDungeonFloor('chapada', floor, 2026);
       expect(layout.dungeonId).toBe('chapada');
       expect(layout.requiresCrystalPuzzle).toBe(true);
@@ -22,19 +23,28 @@ describe('Plano V2 — Fase 2 (Chapada, Varginha, Bênçãos e Missões)', () =>
         expect(colGid).toBe(0);
       }
 
-      const kinds = new Set(layout.enemySpawns.map((s) => s.kind));
-      expect(kinds.has('serpente_cristal') || kinds.has('espectro_ruina')).toBe(true);
+      for (const s of layout.enemySpawns) kinds.add(s.kind);
     }
+    expect(kinds.has('serpente_cristal')).toBe(true);
+    expect(kinds.has('lodo_quartzo')).toBe(true);
+    expect(kinds.has('morcego_estalactite')).toBe(true);
+    expect(kinds.has('salamandra_abissal')).toBe(true);
   });
 
-  it('gera andares de Varginha alcançáveis com sondas ufológicas', () => {
-    const layout = generateDungeonFloor('varginha', 1, 777);
-    expect(layout.dungeonId).toBe('varginha');
-    expect(layout.requiresCrystalPuzzle).toBe(false);
-    expect(layout.crystalNodes).toHaveLength(0);
-    expect(isFloorReachable(layout, layout.startTile, layout.exitTile)).toBe(true);
-    const kinds = new Set(layout.enemySpawns.map((s) => s.kind));
-    expect(kinds.has('sonda_ufologica') || kinds.has('espectro_ruina')).toBe(true);
+  it('gera 10 andares de Varginha alcançáveis com sondas e novas criaturas xenotécnicas', () => {
+    const kinds = new Set<string>();
+    for (let floor = 1; floor <= 10; floor++) {
+      const layout = generateDungeonFloor('varginha', floor, 777);
+      expect(layout.dungeonId).toBe('varginha');
+      expect(layout.requiresCrystalPuzzle).toBe(false);
+      expect(layout.crystalNodes).toHaveLength(0);
+      expect(isFloorReachable(layout, layout.startTile, layout.exitTile)).toBe(true);
+      for (const s of layout.enemySpawns) kinds.add(s.kind);
+    }
+    expect(kinds.has('sonda_ufologica')).toBe(true);
+    expect(kinds.has('drone_alfa')).toBe(true);
+    expect(kinds.has('androide_xenotecnico')).toBe(true);
+    expect(kinds.has('anomalia_magnetica')).toBe(true);
   });
 
   it('aplica Bênção das Águas na rega automática e Maestria dos Ventos no custo de Mana', () => {

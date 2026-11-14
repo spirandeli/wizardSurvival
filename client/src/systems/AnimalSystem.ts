@@ -85,6 +85,8 @@ export class AnimalSystem {
             name: UNICORN_NAMES[idx % UNICORN_NAMES.length] ?? `Unicórnio ${idx + 1}`,
             rolledEnchants: rollUnicornEnchants(rng),
             lastMilkDay: newDayAbsolute - 1,
+            affinity: 0,
+            lastPetDay: newDayAbsolute - 1,
           };
           this.state.unicorns.push(creature);
         } else {
@@ -100,6 +102,49 @@ export class AnimalSystem {
     return { hatchedCount, hatchedUnicornsCount };
   }
 
+  petUnicorn(
+    unicornId: string,
+    currentDayAbsolute: number
+  ): { ok: boolean; affinity: number; message: string } {
+    const unicorn = this.state.unicorns.find((u) => u.id === unicornId);
+    if (!unicorn) {
+      return { ok: false, affinity: 0, message: 'Unicórnio não encontrado.' };
+    }
+    const curAffinity = unicorn.affinity ?? 0;
+    if ((unicorn.lastPetDay ?? -1) >= currentDayAbsolute) {
+      return {
+        ok: false,
+        affinity: curAffinity,
+        message: `${unicorn.name} já recebeu carinho hoje (${curAffinity}/100 ♥).`,
+      };
+    }
+    const nextAffinity = Math.min(100, curAffinity + 15);
+    unicorn.affinity = nextAffinity;
+    unicorn.lastPetDay = currentDayAbsolute;
+    return {
+      ok: true,
+      affinity: nextAffinity,
+      message: `${unicorn.name} adorou o carinho! Afinidade: ${nextAffinity}/100 ♥${
+        nextAffinity >= 50 ? ' (Produção em dobro ativa!)' : ''
+      }`,
+    };
+  }
+
+  petMiniDragons(currentDayAbsolute: number): { ok: boolean; message: string } {
+    if (this.state.miniDragonsCount <= 0) {
+      return { ok: false, message: 'Nenhum Mini-Dragão chocado ainda.' };
+    }
+    if ((this.state.lastDragonPetDay ?? -1) >= currentDayAbsolute) {
+      return { ok: false, message: 'Os Mini-Dragões já receberam carinho e brasa hoje!' };
+    }
+    this.state.lastDragonPetDay = currentDayAbsolute;
+    this.state.vitals.mana = Math.min(this.state.vitals.maxMana, this.state.vitals.mana + 6);
+    return {
+      ok: true,
+      message: 'Você acariciou os Mini-Dragões! O calor dracônico restaurou +6 Mana.',
+    };
+  }
+
   collectUnicornMilk(
     unicornId: string,
     currentDayAbsolute: number
@@ -112,16 +157,18 @@ export class AnimalSystem {
       return { ok: false, message: `${unicorn.name} já produziu Leite Mágico hoje.` };
     }
 
-    const leftover = this.inventory.addItem('leite_unicornio', 1);
-    if (leftover > 0) {
+    const yieldQty = (unicorn.affinity ?? 0) >= 50 ? 2 : 1;
+    const leftover = this.inventory.addItem('leite_unicornio', yieldQty);
+    if (leftover === yieldQty) {
       return { ok: false, message: 'Mochila cheia para coletar o Leite de Unicórnio!' };
     }
+    const actualAdded = yieldQty - leftover;
 
     unicorn.lastMilkDay = currentDayAbsolute;
     this.state.flags.collected_unicorn_milk = true;
     return {
       ok: true,
-      message: `Coletou 1x Leite de Unicórnio de ${unicorn.name}!`,
+      message: `Coletou ${actualAdded}x Leite de Unicórnio de ${unicorn.name}!`,
     };
   }
 

@@ -12,6 +12,7 @@ export class NPC extends Phaser.Physics.Arcade.Sprite {
   private readonly hasSheet: boolean;
   private label: Phaser.GameObjects.Text;
   private indicatorLabel: Phaser.GameObjects.Text;
+  private groundShadow: Phaser.GameObjects.Ellipse;
   private indicatorBobPhase = 0;
   private workingActive = false;
   private patrolTargetX: number;
@@ -66,7 +67,11 @@ export class NPC extends Phaser.Physics.Arcade.Sprite {
       this.play(`npc_${npcDef.id}_idle`);
     }
 
-    this.setDepth(wy);
+    const feetY = hasSheet ? initialY + 22 : initialY + 12;
+    this.setDepth(feetY);
+    this.groundShadow = scene.add
+      .ellipse(wx, feetY - 2, 22, 9, 0x0b0914, 0.32)
+      .setDepth(feetY - 0.05);
     this.label = scene.add
       .text(wx, hasSheet ? wy - 30 : wy - 22, npcDef.name, {
         fontSize: '10px',
@@ -75,7 +80,7 @@ export class NPC extends Phaser.Physics.Arcade.Sprite {
         padding: { x: 4, y: 2 },
       })
       .setOrigin(0.5)
-      .setDepth(wy + 10);
+      .setDepth(feetY + 10);
 
     this.indicatorLabel = scene.add
       .text(wx, hasSheet ? wy - 44 : wy - 36, '', {
@@ -86,7 +91,7 @@ export class NPC extends Phaser.Physics.Arcade.Sprite {
         padding: { x: 4, y: 1 },
       })
       .setOrigin(0.5)
-      .setDepth(wy + 12)
+      .setDepth(feetY + 12)
       .setVisible(false);
   }
 
@@ -200,15 +205,18 @@ export class NPC extends Phaser.Physics.Arcade.Sprite {
     }
 
     const wy = this.hasSheet ? this.y + 6 : this.y;
-    this.setDepth(wy);
-    this.label.setPosition(this.x, this.hasSheet ? wy - 30 : wy - 22).setDepth(wy + 10);
+    const feetY = this.hasSheet ? this.y + 22 : this.y + 12;
+    this.setDepth(feetY);
+    this.groundShadow.setPosition(this.x, feetY - 2).setDepth(feetY - 0.05);
+    this.label.setPosition(this.x, this.hasSheet ? wy - 30 : wy - 22).setDepth(feetY + 10);
     const bobOffset = Math.sin(this.indicatorBobPhase) * 2.5;
     this.indicatorLabel
       .setPosition(this.x, (this.hasSheet ? wy - 44 : wy - 36) + bobOffset)
-      .setDepth(wy + 12);
+      .setDepth(feetY + 12);
   }
 
   destroy(fromScene?: boolean): void {
+    this.groundShadow.destroy();
     this.label.destroy();
     this.indicatorLabel.destroy();
     super.destroy(fromScene);

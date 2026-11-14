@@ -7,15 +7,19 @@ import { InventorySystem } from '../client/src/systems/InventorySystem.js';
 import { QuestSystem } from '../client/src/systems/QuestSystem.js';
 
 describe('Plano V2 — Fase 3 (Ato III: Omena, Núcleo do Mundo e Endgame)', () => {
-  it('gera andares da Fortaleza Dimensional de Omena alcançáveis com sentinelas e sondas', () => {
-    for (let floor = 1; floor <= 3; floor++) {
+  it('gera 10 andares da Fortaleza Dimensional de Omena alcançáveis com sentinelas e novas criaturas do vazio', () => {
+    const kinds = new Set<string>();
+    for (let floor = 1; floor <= 10; floor++) {
       const layout = generateDungeonFloor('fortaleza_omena', floor, 4242);
       expect(layout.dungeonId).toBe('fortaleza_omena');
       expect(layout.requiresCrystalPuzzle).toBe(false);
       expect(isFloorReachable(layout, layout.startTile, layout.exitTile)).toBe(true);
-      const kinds = new Set(layout.enemySpawns.map((s) => s.kind));
-      expect(kinds.has('sentinela_omena') || kinds.has('sonda_ufologica')).toBe(true);
+      for (const s of layout.enemySpawns) kinds.add(s.kind);
     }
+    expect(kinds.has('sentinela_omena')).toBe(true);
+    expect(kinds.has('sombra_errante')).toBe(true);
+    expect(kinds.has('arauto_abismo')).toBe(true);
+    expect(kinds.has('executor_omena')).toBe(true);
   });
 
   it('prepara Elixir do Solstício de Névoa e aplica bônus do Cetro do Núcleo do Mundo', () => {

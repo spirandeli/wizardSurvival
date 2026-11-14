@@ -5,9 +5,9 @@ import { QUESTS } from '../data/quests';
 import { InventorySystem } from '../systems/InventorySystem';
 import { ManaSystem, SPELLS } from '../systems/ManaSystem';
 import { QuestSystem } from '../systems/QuestSystem';
-import { formatGameTime } from '../systems/TimeSystem';
+import { formatGameTime, isMeteorShowerNight } from '../systems/TimeSystem';
 import { renderItemIconHtml } from './ItemIcon';
-import { getMoonSvg, getWeatherSvg, UI_SVG } from './UiIcons';
+import { getBuffIconHtml, getMeteorIconHtml, getMoonSvg, getWeatherSvg, UI_SVG } from './UiIcons';
 
 export class HUD {
   private root: HTMLElement;
@@ -78,6 +78,17 @@ export class HUD {
       })
       .join('');
 
+    const activeBuffsHtml = (state.activeBuffs ?? [])
+      .filter((b) => b.remainingMs > 0)
+      .map((b) => {
+        const icon = getBuffIconHtml(b.id, 16);
+        const secs = Math.ceil(b.remainingMs / 1000);
+        return `<span class="hud-buff-pill">${icon} ${b.label} (${secs}s)</span>`;
+      })
+      .join('');
+
+    const meteorNight = isMeteorShowerNight(time);
+
     this.root.innerHTML = `
       <div class="hud-almanac ui-interactive">
         <div class="hud-almanac-top">
@@ -91,6 +102,7 @@ export class HUD {
         <div class="hud-env-row">
           <span class="hud-chip" title="Fase da Lua">${getMoonSvg(time.moonPhase)} Lua ${time.moonPhase}</span>
           <span class="hud-chip" title="Previsão Atual">${getWeatherSvg(time.weather)} ${time.weather}</span>
+          ${meteorNight ? `<span class="hud-chip" title="Noite de Chuva de Meteoros">${getMeteorIconHtml(16)} Meteoros</span>` : ''}
         </div>
 
         <div class="hud-economy-row">
@@ -103,7 +115,7 @@ export class HUD {
 
         ${activeMainQuest
         ? `<button type="button" id="hud-quest-btn" class="hud-quest-hint ${isManuallyPinned ? 'pinned' : ''}" title="${activeMainQuest.objectiveHint}">
-                <div>${isManuallyPinned ? '📌' : '✦'} ${activeMainQuest.title}</div>
+                <div>${isManuallyPinned ? UI_SVG.pin : UI_SVG.star} ${activeMainQuest.title}</div>
                 ${pendingStep
           ? `<div class="hud-quest-step">↳ ${pendingStep.label}${pendingStep.target > 1 ? ` (${pendingStep.current}/${pendingStep.target})` : ''
           }</div>`
@@ -156,6 +168,7 @@ export class HUD {
           </div>
         </div>
         ${unlockedSpellsHtml ? `<div class="hud-spells-strip">${unlockedSpellsHtml}</div>` : ''}
+        ${activeBuffsHtml ? `<div class="hud-buffs-strip">${activeBuffsHtml}</div>` : ''}
       </div>
     `;
 

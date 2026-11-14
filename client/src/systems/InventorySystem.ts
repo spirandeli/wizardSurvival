@@ -1,6 +1,40 @@
-import type { GameStateSnapshot, InventorySlot } from '@shared/types';
+import type { ActiveBuffId, GameStateSnapshot, InventorySlot, ItemBuff } from '@shared/types';
 import { HOTBAR_SIZE } from '../config/gameConfig';
 import { getItemDef } from '../data/items';
+
+export function hasActiveBuff(state: GameStateSnapshot, id: ActiveBuffId): boolean {
+  return Boolean(state.activeBuffs?.some((b) => b.id === id && b.remainingMs > 0));
+}
+
+export function activateItemBuff(state: GameStateSnapshot, buff: ItemBuff): void {
+  if (!state.activeBuffs) state.activeBuffs = [];
+  const durationMs = Math.max(1000, Math.round(buff.durationSec * 1000));
+  const existing = state.activeBuffs.find((b) => b.id === buff.id);
+  if (existing) {
+    existing.label = buff.label;
+    existing.remainingMs = Math.max(existing.remainingMs, durationMs);
+  } else {
+    state.activeBuffs.push({ id: buff.id, label: buff.label, remainingMs: durationMs });
+  }
+}
+
+export function tickActiveBuffs(state: GameStateSnapshot, deltaMs: number): boolean {
+  if (!state.activeBuffs || state.activeBuffs.length === 0 || deltaMs <= 0) return false;
+  let changed = false;
+  const remaining: NonNullable<GameStateSnapshot['activeBuffs']> = [];
+  for (const buff of state.activeBuffs) {
+    const prevSec = Math.ceil(buff.remainingMs / 1000);
+    const nextMs = buff.remainingMs - deltaMs;
+    if (nextMs > 0) {
+      if (Math.ceil(nextMs / 1000) !== prevSec) changed = true;
+      remaining.push({ ...buff, remainingMs: nextMs });
+    } else {
+      changed = true;
+    }
+  }
+  state.activeBuffs = remaining;
+  return changed;
+}
 
 export class InventorySystem {
   constructor(private state: GameStateSnapshot) {}
@@ -227,6 +261,10 @@ export class InventorySystem {
     if (hpGained > 0) gains.push(`+${hpGained} HP`);
     if (manaGained > 0) gains.push(`+${manaGained} Mana`);
     if (stamGained > 0) gains.push(`+${stamGained} Stamina`);
+    if (def.buff) {
+      activateItemBuff(this.state, def.buff);
+      gains.push(`${def.buff.label} (${def.buff.durationSec}s)`);
+    }
 
     return {
       ok: true,

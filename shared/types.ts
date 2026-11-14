@@ -6,6 +6,20 @@ export type WeatherType = 'Ensolarado' | 'Nublado' | 'Neblina' | 'Chuva';
 
 export type ElementType = 'terra' | 'agua' | 'ar' | 'fogo' | 'arcano';
 
+export type ActiveBuffId = 'brisa' | 'folego' | 'harmonia';
+
+export interface ItemBuff {
+  id: ActiveBuffId;
+  label: string;
+  durationSec: number;
+}
+
+export interface ActiveBuffState {
+  id: ActiveBuffId;
+  label: string;
+  remainingMs: number;
+}
+
 export type ItemCategory =
   | 'tool'
   | 'weapon'
@@ -36,6 +50,7 @@ export interface ItemDefinition {
   toolKind?: 'hoe' | 'water' | 'pickaxe' | 'axe' | 'fishing';
   visualColor?: string;
   elementTheme?: ElementType;
+  buff?: ItemBuff;
 }
 
 export interface InventorySlot {
@@ -91,6 +106,8 @@ export interface UnicornCreature {
   name: string;
   rolledEnchants: ElementType[];
   lastMilkDay: number;
+  affinity?: number;
+  lastPetDay?: number;
 }
 
 export interface EnchantmentState {
@@ -159,6 +176,8 @@ export interface GameStateSnapshot {
   houseLevel?: 1 | 2 | 3;
   compendium?: CompendiumState;
   forgeJobs?: ForgeJob[];
+  activeBuffs?: ActiveBuffState[];
+  lastDragonPetDay?: number;
 }
 
 export interface SaveRecord {

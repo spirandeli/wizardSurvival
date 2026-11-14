@@ -4,6 +4,8 @@ import { EventBus } from '../core/EventBus';
 import { gameState } from '../core/GameState';
 import { getItemDef } from '../data/items';
 import type { CardinalDirection } from '../systems/GridSystem';
+import type { StepSurface } from '../systems/AudioSystem';
+import { hasActiveBuff } from '../systems/InventorySystem';
 
 const FACING_STEP_FRAME: Record<CardinalDirection, number> = {
   down: 1,
@@ -26,6 +28,19 @@ interface MovementKeys {
   shift: Phaser.Input.Keyboard.Key;
 }
 
+const FACING_OVERLAY_COL: Record<CardinalDirection, number> = {
+  down: 0,
+  up: 1,
+  left: 2,
+  right: 3,
+};
+
+const ARMOR_OVERLAY_ROWS: Record<string, number> = {
+  tunica_neblina: 0,
+  armadura_granito_runico: 1,
+  manto_escama_dragao: 2,
+};
+
 export class Player extends Phaser.Physics.Arcade.Sprite {
   public facing: CardinalDirection = 'down';
   private keys: MovementKeys | null = null;
@@ -42,7 +57,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private walkFrame = false;
   private readonly useSpriteSheet: boolean;
   private armorAura: Phaser.GameObjects.Ellipse;
+  private equipmentOverlay: Phaser.GameObjects.Sprite | null = null;
+  private armorOverlayRow: number | null = null;
   private heldItemSprite: Phaser.GameObjects.Image | null = null;
+  private stepSurfaceResolver?: () => StepSurface;
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     const hasSheet = scene.textures.exists('player_sheet');
@@ -72,7 +90,15 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       };
     }
 
-    this.setDepth(this.y);
+    this.setDepth(this.getSortY());
+  }
+
+  getSortY(): number {
+    return this.y + (this.useSpriteSheet ? 22 : 12);
+  }
+
+  setStepSurfaceResolver(resolver: () => StepSurface): void {
+    this.stepSurfaceResolver = resolver;
   }
 
   syncEquipmentVisuals(weaponId: string | null, armorId: string | null): void {
@@ -89,6 +115,38 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.setData('equippedWeaponId', weaponId);
     } else {
       this.setData('equippedWeaponId', null);
+    }
+
+    this.armorOverlayRow = armorId ? (ARMOR_OVERLAY_ROWS[armorId] ?? null) : null;
+    if (this.armorOverlayRow !== null && this.scene.textures.exists('player_equipment_overlays_sheet')) {
+      const col = FACING_OVERLAY_COL[this.facing];
+      const frameIdx = this.armorOverlayRow * 4 + col;
+      if (!this.equipmentOverlay) {
+        this.equipmentOverlay = this.scene.add
+          .sprite(this.x, this.y, 'player_equipment_overlays_sheet', frameIdx)
+          .setDepth(this.getSortY() + 0.05);
+      } else {
+        this.equipmentOverlay.setVisible(true).setFrame(frameIdx);
+      }
+    } else {
+      this.equipmentOverlay?.setVisible(false);
+    }
+  }
+
+  private syncEquipmentOverlayTransform(sortY: number): void {
+    if (!this.equipmentOverlay || this.armorOverlayRow === null) return;
+    if (!this.useSpriteSheet) {
+      this.equipmentOverlay.setVisible(false);
+      return;
+    }
+    const frameIdx = this.armorOverlayRow * 4 + FACING_OVERLAY_COL[this.facing];
+    this.equipmentOverlay
+      .setVisible(this.visible)
+      .setPosition(this.x, this.y)
+      .setAlpha(this.alpha)
+      .setDepth(sortY + 0.05);
+    if (this.equipmentOverlay.frame.name !== String(frameIdx)) {
+      this.equipmentOverlay.setFrame(frameIdx);
     }
   }
 
@@ -125,11 +183,26 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
           animKey = 'player_staff_side';
           flipX = this.facing === 'left';
           drawsToolInSprite = true;
+        } else if (!isHorizontal) {
+          const verticalCastKey = this.facing === 'up' ? 'player_cast_up' : 'player_cast_down';
+          if (this.scene.anims.exists(verticalCastKey)) {
+            animKey = verticalCastKey;
+            drawsToolInSprite = true;
+          } else if (this.scene.anims.exists('player_cast')) {
+            animKey = 'player_cast';
+            drawsToolInSprite = true;
+          }
         } else if (this.scene.anims.exists('player_cast')) {
           animKey = 'player_cast';
           flipX = this.facing === 'left';
           drawsToolInSprite = true;
         }
+      } else if (action === 'plant' && this.scene.anims.exists('player_plant_seed')) {
+        animKey = 'player_plant_seed';
+      } else if (action === 'eat' && this.scene.anims.exists('player_eat_drink')) {
+        animKey = 'player_eat_drink';
+      } else if (action === 'hold' && this.scene.anims.exists('player_hold_item')) {
+        animKey = 'player_hold_item';
       } else if (isPickaxe) {
         if (isHorizontal && this.scene.anims.exists('player_pickaxe_side')) {
           animKey = 'player_pickaxe_side';
@@ -483,9 +556,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
         this.play('player_sprint_right', true);
       }
       body.setVelocity(this.dashDirX * this.dashSpeed, this.dashDirY * this.dashSpeed);
-      this.setDepth(this.y);
+      const sortY = this.getSortY();
+      this.setDepth(sortY);
       this.armorAura.setPosition(this.x, this.y + (this.useSpriteSheet ? 17 : 10));
-      this.armorAura.setDepth(this.y - 1);
+      this.armorAura.setDepth(sortY - 1);
+      this.syncEquipmentOverlayTransform(sortY);
       if (this.dashTimerMs === 0) {
         this.setFlipX(false);
       }
@@ -495,7 +570,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     if (this.actionTimerMs > 0) {
       this.actionTimerMs = Math.max(0, this.actionTimerMs - deltaMs);
       body.setVelocity(0, 0);
-      this.setDepth(this.y);
+      const sortY = this.getSortY();
+      this.setDepth(sortY);
+      this.syncEquipmentOverlayTransform(sortY);
       if (this.actionTimerMs === 0) {
         this.setFlipX(false);
       }
@@ -529,9 +606,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
     if (vx !== 0 || vy !== 0) {
       const length = Math.hypot(vx, vy);
-      const speed = gameState.getState().flags.sky_guardian_blessed
-        ? Math.round(this.moveSpeed * 1.15)
-        : this.moveSpeed;
+      const curState = gameState.getState();
+      let speedMult = curState.flags.sky_guardian_blessed ? 1.15 : 1;
+      if (hasActiveBuff(curState, 'brisa')) speedMult += 0.15;
+      const speed = Math.round(this.moveSpeed * speedMult);
       vx = (vx / length) * speed;
       vy = (vy / length) * speed;
 
@@ -561,7 +639,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.stepAccumulator += deltaMs;
       if (this.stepAccumulator >= 340) {
         this.stepAccumulator = 0;
-        EventBus.emit('AUDIO_PLAY_SFX', { kind: 'step' });
+        const surface = this.stepSurfaceResolver ? this.stepSurfaceResolver() : 'grass';
+        EventBus.emit('AUDIO_PLAY_SFX', { kind: 'step', surface });
       }
     } else {
       this.stepAccumulator = 0;
@@ -583,9 +662,20 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     body.setVelocity(vx, vy);
-    this.setDepth(this.y);
+    const sortY = this.getSortY();
+    this.setDepth(sortY);
     this.armorAura.setPosition(this.x, this.y + (this.useSpriteSheet ? 17 : 10));
-    this.armorAura.setDepth(this.y - 1);
+    this.armorAura.setDepth(sortY - 1);
+    this.syncEquipmentOverlayTransform(sortY);
+  }
+
+  override destroy(fromScene?: boolean): void {
+    this.armorAura.destroy();
+    this.equipmentOverlay?.destroy();
+    this.heldItemSprite?.destroy();
+    this.equipmentOverlay = null;
+    this.heldItemSprite = null;
+    super.destroy(fromScene);
   }
 
   getFeetWorldPosition(): { x: number; y: number } {

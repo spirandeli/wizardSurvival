@@ -247,6 +247,43 @@ export class BootScene extends Phaser.Scene {
       frameWidth: 32,
       frameHeight: 32,
     });
+    this.load.spritesheet('player_item_usability_sheet', '/assets/sprites/player_item_usability.png', {
+      frameWidth: 48,
+      frameHeight: 48,
+    });
+    this.load.spritesheet('player_equipment_overlays_sheet', '/assets/sprites/player_equipment_overlays.png', {
+      frameWidth: 48,
+      frameHeight: 48,
+    });
+    this.load.spritesheet('sao_tome_trees_sheet', '/assets/sprites/sao_tome_trees.png', {
+      frameWidth: 64,
+      frameHeight: 96,
+    });
+
+    // Lote v4: 12 novas criaturas das dungeons + Santuário/Elevador Rúnico
+    for (const enemyKind of [
+      'escaravelho_inca',
+      'totem_condor',
+      'colosso_granito',
+      'lodo_quartzo',
+      'morcego_estalactite',
+      'salamandra_abissal',
+      'drone_alfa',
+      'androide_xenotecnico',
+      'anomalia_magnetica',
+      'sombra_errante',
+      'arauto_abismo',
+      'executor_omena',
+    ]) {
+      this.load.spritesheet(`enemy_${enemyKind}_sheet`, `/assets/sprites/enemies/enemy_${enemyKind}.png`, {
+        frameWidth: 48,
+        frameHeight: 48,
+      });
+    }
+    this.load.spritesheet('dungeon_sanctuary_elevator_v4_sheet', '/assets/tilesets/dungeon_sanctuary_elevator_v4.png', {
+      frameWidth: 48,
+      frameHeight: 48,
+    });
   }
 
   create(): void {
@@ -1222,6 +1259,17 @@ export class BootScene extends Phaser.Scene {
       ensureAnim('player_cast', 'player_sheet', [20, 21, 22, 23], 12, 0);
     }
 
+    if (this.textures.exists('player_item_usability_sheet')) {
+      ensureAnim('player_carry_down', 'player_item_usability_sheet', [0, 1, 2, 3], 7, -1);
+      ensureAnim('player_carry_up', 'player_item_usability_sheet', [4, 5], 6, -1);
+      ensureAnim('player_carry_side', 'player_item_usability_sheet', [6, 7], 6, -1);
+      ensureAnim('player_plant_seed', 'player_item_usability_sheet', [8, 9, 10, 11], 12, 0);
+      ensureAnim('player_eat_drink', 'player_item_usability_sheet', [12, 13, 14, 15], 10, 0);
+      ensureAnim('player_cast_down', 'player_item_usability_sheet', [16, 17], 10, 0);
+      ensureAnim('player_cast_up', 'player_item_usability_sheet', [18, 19], 10, 0);
+      ensureAnim('player_hold_item', 'player_item_usability_sheet', [20, 21, 22, 23], 8, 0);
+    }
+
     if (this.textures.exists('npcs_sheet')) {
       for (const [npcId, col] of Object.entries(NPC_SHEET_COLS)) {
         const moveSheetKey = `npc_${npcId}_move_sheet`;
@@ -1653,6 +1701,36 @@ export class BootScene extends Phaser.Scene {
       ensureAnim('omena_cataclysm_ext', 'boss_omena_ext_sheet', [6, 7, 8], 9, 0);
       ensureAnim('omena_stagger_ext', 'boss_omena_ext_sheet', [9], 6, 0);
       ensureAnim('omena_dissolve_ext', 'boss_omena_ext_sheet', [10, 11], 5, 0);
+    }
+
+    for (const enemyKind of [
+      'escaravelho_inca',
+      'totem_condor',
+      'colosso_granito',
+      'lodo_quartzo',
+      'morcego_estalactite',
+      'salamandra_abissal',
+      'drone_alfa',
+      'androide_xenotecnico',
+      'anomalia_magnetica',
+      'sombra_errante',
+      'arauto_abismo',
+      'executor_omena',
+    ]) {
+      const sheetKey = `enemy_${enemyKind}_sheet`;
+      if (this.textures.exists(sheetKey)) {
+        ensureAnim(`${enemyKind}_idle`, sheetKey, [0, 1, 2, 3], 7, -1);
+        ensureAnim(`${enemyKind}_walk_up`, sheetKey, [4, 5, 6, 7], 7, -1);
+        ensureAnim(`${enemyKind}_windup`, sheetKey, [8, 9, 10, 11], 9, 0);
+        ensureAnim(`${enemyKind}_attack`, sheetKey, [12, 13, 14, 15], 10, 0);
+        ensureAnim(`${enemyKind}_hurt`, sheetKey, [16, 17], 9, 0);
+        ensureAnim(`${enemyKind}_death`, sheetKey, [16, 17, 18, 19], 8, 0);
+      }
+    }
+
+    if (this.textures.exists('dungeon_sanctuary_elevator_v4_sheet')) {
+      ensureAnim('runic_elevator_idle_anim', 'dungeon_sanctuary_elevator_v4_sheet', [0, 1], 4, -1);
+      ensureAnim('runic_elevator_active_anim', 'dungeon_sanctuary_elevator_v4_sheet', [1, 2, 3, 2], 6, -1);
     }
   }
 }

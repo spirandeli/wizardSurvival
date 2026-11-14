@@ -2,6 +2,7 @@ import { EventBus } from '../core/EventBus';
 import { gameState } from '../core/GameState';
 import { getItemDef } from '../data/items';
 import { InventorySystem } from '../systems/InventorySystem';
+import { getVillagerShopDiscount } from '../systems/NPCSystem';
 import { renderItemIconHtml } from './ItemIcon';
 
 export type ShopId = 'botica' | 'ferraria' | 'pub';
@@ -78,14 +79,15 @@ export class ShopModal {
         : this.currentShopId === 'ferraria'
           ? 'bento'
           : 'isis';
-    const hasDiscount = Boolean(state.flags[`npc_perk_${ownerNpcId}_50`]);
+    const discountRate = getVillagerShopDiscount(state, ownerNpcId);
+    const discountPct = Math.round(discountRate * 100);
 
     const rowsHtml = shop.items
       .map((itemId) => {
         const def = getItemDef(itemId);
         if (!def) return '';
         const basePrice = def.buyPrice ?? Math.max(15, def.sellPrice * 2);
-        const price = hasDiscount ? Math.max(1, Math.round(basePrice * 0.85)) : basePrice;
+        const price = discountRate > 0 ? Math.max(1, Math.round(basePrice * (1 - discountRate))) : basePrice;
         const canAfford = state.gold >= price;
 
         return `
@@ -99,7 +101,7 @@ export class ShopModal {
             </div>
             <button type="button" class="recipe-btn buy-btn" data-item="${def.id}" data-price="${price}" ${canAfford ? '' : 'disabled'
           }>
-              Comprar (${price} G${hasDiscount ? ' -15%' : ''})
+              Comprar (${price} G${discountPct > 0 ? ` -${discountPct}%` : ''})
             </button>
           </div>
         `;
@@ -112,7 +114,7 @@ export class ShopModal {
           <h2 class="tp-title">${shop.title}</h2>
           <button type="button" id="shop-close-btn" class="modal-close">✕</button>
         </div>
-        <p class="tp-subtitle">Seu Ouro: <strong>${state.gold} G</strong>${hasDiscount ? ' • <span style="color:#5bc26e">★ Desconto de Amizade (-15%) ativo!</span>' : ''
+        <p class="tp-subtitle">Seu Ouro: <strong>${state.gold} G</strong>${discountPct > 0 ? ` • <span style="color:#5bc26e">★ Desconto de Amizade (-${discountPct}%) ativo!</span>` : ''
       }</p>
         <div class="recipes-list">${rowsHtml}</div>
       </div>

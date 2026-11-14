@@ -12,13 +12,52 @@ import { renderItemIconHtml } from './ItemIcon';
 const ENEMY_LABELS: Record<string, string> = {
   golem_pedra: 'Golem de Pedra',
   espectro_ruina: 'Espectro da Ruína',
+  escaravelho_inca: 'Escaravelho Dourado Inca',
+  totem_condor: 'Totem do Condor Solar',
+  colosso_granito: 'Colosso de Obsidiana Inca',
   serpente_cristal: 'Serpente de Cristal',
+  lodo_quartzo: 'Limoche de Quartzo Rosa',
+  morcego_estalactite: 'Morcego de Ametista',
+  salamandra_abissal: 'Salamandra Abissal de Diamante',
   sonda_ufologica: 'Sonda Ufológica',
+  drone_alfa: 'Drone Batedor Cinzento',
+  androide_xenotecnico: 'Autômato Xenotécnico',
+  anomalia_magnetica: 'Anomalia Eletromagnética',
   sentinela_omena: 'Sentinela de Omena',
+  sombra_errante: 'Sombra Devoradora do Vazio',
+  arauto_abismo: 'Arauto da Fenda Carmesim',
+  executor_omena: 'Executor Real de Omena',
   guardiao_terra: 'Guardião da Terra',
   guardiao_aguas: 'Guardião das Águas',
   guardiao_ceus: 'Guardião dos Céus',
   omena: 'Omena, Tecelão das Sombras',
+};
+
+const ENEMY_META: Record<
+  string,
+  { habitat: string; element: string; portrait?: string }
+> = {
+  golem_pedra: { habitat: 'Machu Picchu (A. 1–10)', element: 'Terra', portrait: 'golem_pedra.png' },
+  espectro_ruina: { habitat: 'Ruínas & Grutas (A. 1–6)', element: 'Arcano' },
+  escaravelho_inca: { habitat: 'Machu Picchu (A. 1–10)', element: 'Terra', portrait: 'escaravelho_inca.png' },
+  totem_condor: { habitat: 'Machu Picchu (A. 4–10)', element: 'Terra/Fogo', portrait: 'totem_condor.png' },
+  colosso_granito: { habitat: 'Machu Picchu (A. 7–10)', element: 'Terra (Elite)', portrait: 'colosso_granito.png' },
+  serpente_cristal: { habitat: 'Chapada (A. 1–10)', element: 'Água', portrait: 'serpente_cristal.png' },
+  lodo_quartzo: { habitat: 'Chapada (A. 1–10)', element: 'Água', portrait: 'lodo_quartzo.png' },
+  morcego_estalactite: { habitat: 'Chapada (A. 4–10)', element: 'Água/Ar', portrait: 'morcego_estalactite.png' },
+  salamandra_abissal: { habitat: 'Chapada (A. 7–10)', element: 'Água (Elite)', portrait: 'salamandra_abissal.png' },
+  sonda_ufologica: { habitat: 'Varginha (A. 1–10)', element: 'Ar', portrait: 'sonda_ufologica.png' },
+  drone_alfa: { habitat: 'Varginha (A. 1–10)', element: 'Ar', portrait: 'drone_alfa.png' },
+  androide_xenotecnico: { habitat: 'Varginha (A. 4–10)', element: 'Ar/Arcano', portrait: 'androide_xenotecnico.png' },
+  anomalia_magnetica: { habitat: 'Varginha (A. 7–10)', element: 'Ar/Arcano (Elite)', portrait: 'anomalia_magnetica.png' },
+  sentinela_omena: { habitat: 'Fortaleza de Omena (A. 1–10)', element: 'Arcano', portrait: 'sentinela_omena.png' },
+  sombra_errante: { habitat: 'Fortaleza de Omena (A. 1–10)', element: 'Arcano', portrait: 'sombra_errante.png' },
+  arauto_abismo: { habitat: 'Fortaleza de Omena (A. 4–10)', element: 'Arcano/Fogo', portrait: 'arauto_abismo.png' },
+  executor_omena: { habitat: 'Fortaleza de Omena (A. 7–10)', element: 'Arcano/Fogo (Elite)', portrait: 'executor_omena.png' },
+  guardiao_terra: { habitat: 'Altar da Terra (A. 11)', element: 'Chefe Terra', portrait: 'guardiao_terra.png' },
+  guardiao_aguas: { habitat: 'Lago Sagrado (A. 11)', element: 'Chefe Água', portrait: 'guardiao_aguas.png' },
+  guardiao_ceus: { habitat: 'Núcleo dos Ventos (A. 11)', element: 'Chefe Ar', portrait: 'guardiao_ceus.png' },
+  omena: { habitat: 'Trono Dimensional (A. 11)', element: 'Chefe Final' },
 };
 
 function renderHeartsHtml(affinity: number): string {
@@ -386,16 +425,60 @@ export function renderHubCompendioTab(): string {
       <span class="badge-pill">🗿 Estelas Lidas: ${comp.loreRead.length}</span>
     </div>
 
-    <h3 class="quest-section-title">Bestiário de São Tomé &amp; Portais</h3>
+    <h3 class="quest-section-title">Companheiros &amp; Criaturas Mágicas</h3>
+    <div class="compendium-companions-row">
+      <div class="compendium-companion-card ${state.flags.lupin_awakened ? 'unlocked' : 'locked'}">
+        <img src="/assets/portraits/lupin_busto.png" alt="Lupin" class="compendium-bust" onerror="this.style.display='none'" />
+        <div>
+          <strong>Lupin (Grimório)</strong>
+          <small>${state.flags.lupin_awakened ? `Desperto • ${state.unlockedSpells.length} magias` : 'Dormindo no Porão'}</small>
+        </div>
+      </div>
+      <div class="compendium-companion-card ${state.flags.lupin_awakened ? 'unlocked' : 'locked'}">
+        <img src="/assets/portraits/remo_busto.png" alt="Remo" class="compendium-bust" onerror="this.style.display='none'" />
+        <div>
+          <strong>Remo (Guardião Espiritual)</strong>
+          <small>${state.flags.lupin_awakened ? 'Mentor do Altar Arcano' : 'Aguardando Despertar'}</small>
+        </div>
+      </div>
+      <div class="compendium-companion-card ${state.miniDragonsCount > 0 ? 'unlocked' : 'locked'}">
+        <img src="/assets/portraits/mini_dragao.png" alt="Mini-Dragão" class="compendium-bust" onerror="this.style.display='none'" />
+        <div>
+          <strong>Mini-Dragões</strong>
+          <small>${state.miniDragonsCount > 0 ? `${state.miniDragonsCount} criado(s) na fazenda` : 'Incube ovos do Porão'}</small>
+        </div>
+      </div>
+      <div class="compendium-companion-card ${state.unicorns.length > 0 ? 'unlocked' : 'locked'}">
+        <img src="/assets/portraits/unicornio.png" alt="Unicórnio" class="compendium-bust" onerror="this.style.display='none'" />
+        <div>
+          <strong>Unicórnios Lunares</strong>
+          <small>${state.unicorns.length > 0 ? `${state.unicorns.length} no cercado mágico` : 'Raros na Botica'}</small>
+        </div>
+      </div>
+    </div>
+
+    <h3 class="quest-section-title">Bestiário de São Tomé &amp; Portais (${discoveredEnemies}/${allEnemyKeys.length})</h3>
     <div class="compendium-grid">
       ${allEnemyKeys
         .map((k) => {
           const kills = comp.enemiesDefeated[k] ?? 0;
           const unlocked = kills > 0;
+          const isMaster = kills >= 10;
+          const meta = ENEMY_META[k];
+          const bustHtml =
+            unlocked && meta?.portrait
+              ? `<img src="/assets/portraits/${meta.portrait}" alt="${ENEMY_LABELS[k]}" class="compendium-enemy-bust" onerror="this.style.display='none'" />`
+              : `<span class="compendium-enemy-fallback">${unlocked ? '⚔️' : '❓'}</span>`;
           return `
-            <div class="compendium-chip ${unlocked ? 'unlocked' : 'locked'}">
-              <span>${unlocked ? `⚔️ ${ENEMY_LABELS[k]}` : '❓ Criatura Desconhecida'}</span>
-              <strong>${unlocked ? `${kills}×` : '???'}</strong>
+            <div class="compendium-chip ${unlocked ? 'unlocked' : 'locked'} ${isMaster ? 'mastered' : ''}">
+              <div class="compendium-chip-left">
+                ${bustHtml}
+                <div class="compendium-chip-text">
+                  <span>${unlocked ? ENEMY_LABELS[k] : 'Criatura Desconhecida'}</span>
+                  <small>${unlocked ? `${meta?.element ?? 'Fenda'} • ${meta?.habitat ?? ''}` : meta?.habitat ?? 'Explore os 10 andares'}</small>
+                </div>
+              </div>
+              <strong>${unlocked ? `${kills}×${isMaster ? ' ★' : ''}` : '???'}</strong>
             </div>
           `;
         })

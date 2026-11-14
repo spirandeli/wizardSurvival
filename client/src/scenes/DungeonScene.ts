@@ -13,6 +13,8 @@ import { calculateElementalDamage, CombatSystem } from '../systems/CombatSystem'
 import {
   generateDungeonFloor,
   MACHU_GID,
+  recordDungeonCheckpoint,
+  TOTAL_PROCEDURAL_FLOORS,
   type DungeonFloorLayout,
   type DungeonId,
 } from '../systems/DungeonGenerator';
@@ -20,7 +22,7 @@ import { getItemDef } from '../data/items';
 import { CraftingSystem } from '../systems/CraftingSystem';
 import { FarmingSystem } from '../systems/FarmingSystem';
 import { GridSystem } from '../systems/GridSystem';
-import { InventorySystem } from '../systems/InventorySystem';
+import { hasActiveBuff, InventorySystem, tickActiveBuffs } from '../systems/InventorySystem';
 import { ManaSystem } from '../systems/ManaSystem';
 import { QuestSystem } from '../systems/QuestSystem';
 import { TimeSystem } from '../systems/TimeSystem';
@@ -31,8 +33,6 @@ export interface DungeonSceneData {
   seed?: number;
   unstableRift?: boolean;
 }
-
-const TOTAL_PROCEDURAL_FLOORS = 3;
 
 interface DungeonThemeConfig {
   dungeonTitle: string;
@@ -218,6 +218,7 @@ export class DungeonScene extends Phaser.Scene {
   private attackCooldownMs = 0;
   private spellCooldownMs = 0;
   private trapCooldownMs = 0;
+  private harmoniaRegenMs = 0;
   private isExiting = false;
   private isDialogueOpen = false;
 
@@ -230,6 +231,7 @@ export class DungeonScene extends Phaser.Scene {
     this.floor = data?.floor ?? 1;
     this.seed = data?.seed ?? (gameState.getState().time.day * 97 + 1047);
     this.unstableRift = Boolean(data?.unstableRift);
+    this.harmoniaRegenMs = 0;
     this.isBossFloor = this.floor > TOTAL_PROCEDURAL_FLOORS;
     this.enemies = [];
     this.bossPortals = [];
@@ -292,10 +294,24 @@ export class DungeonScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.player, true, 0.14, 0.14);
     this.cameras.main.fadeIn(220, 20, 18, 29);
 
+    const newlyUnlockedCp = recordDungeonCheckpoint(state.flags, this.dungeonId, this.floor);
+    if (newlyUnlockedCp !== null) {
+      const cpLabel =
+        newlyUnlockedCp > TOTAL_PROCEDURAL_FLOORS
+          ? 'Arena do Guardião'
+          : `Santuário (Andar ${newlyUnlockedCp})`;
+      EventBus.emit('SHOW_TOAST', {
+        message: `✨ Elevador Rúnico sintonizado: ${cpLabel} desbloqueado para viagens rápidas!`,
+        kind: 'success',
+      });
+    }
+
     const riftSuffix = this.unstableRift ? ' [Fenda Instável]' : '';
+    const sanctuarySuffix =
+      !this.isBossFloor && (this.floor === 5 || this.floor === 10) ? ' • Santuário' : '';
     const mapLabel = this.isBossFloor
       ? `${theme.arenaTitle}${riftSuffix}`
-      : `${theme.dungeonTitle} — Andar ${this.floor}/${TOTAL_PROCEDURAL_FLOORS}${riftSuffix}`;
+      : `${theme.dungeonTitle} — Andar ${this.floor}/${TOTAL_PROCEDURAL_FLOORS}${sanctuarySuffix}${riftSuffix}`;
 
     EventBus.emit('MAP_CHANGED', {
       mapId: this.isBossFloor ? theme.arenaMapKey : this.dungeonId,
@@ -306,7 +322,9 @@ export class DungeonScene extends Phaser.Scene {
     EventBus.emit('SHOW_TOAST', {
       message: this.isBossFloor
         ? `${theme.bossLabel}! [Espaço/Clique] Ataque • [Q] Fagulha (${this.manaSystem.getSpellCost('fagulha_arcana')} Mana) • [Shift] Dash`
-        : `Andar ${this.floor}: ${theme.floorHint}`,
+        : this.floor === 5 || this.floor === 10
+        ? `Santuário do Andar ${this.floor}/${TOTAL_PROCEDURAL_FLOORS}! Fonte de Cura e Baús reforçados aguardam.`
+        : `Andar ${this.floor}/${TOTAL_PROCEDURAL_FLOORS}: ${theme.floorHint}`,
       kind: 'info',
     });
   }
@@ -322,6 +340,21 @@ export class DungeonScene extends Phaser.Scene {
       EventBus.emit('FORGE_UPDATED');
     }
     if (this.isExiting) return;
+
+    const liveState = gameState.getState();
+    if (tickActiveBuffs(liveState, delta)) {
+      EventBus.emit('VITALS_UPDATED', { vitals: liveState.vitals });
+    }
+    if (hasActiveBuff(liveState, 'harmonia') && liveState.vitals.mana < liveState.vitals.maxMana) {
+      this.harmoniaRegenMs += delta;
+      if (this.harmoniaRegenMs >= 3000) {
+        this.harmoniaRegenMs = 0;
+        liveState.vitals.mana = Math.min(liveState.vitals.maxMana, liveState.vitals.mana + 1);
+        EventBus.emit('VITALS_UPDATED', { vitals: liveState.vitals });
+      }
+    } else {
+      this.harmoniaRegenMs = 0;
+    }
 
     if (this.attackCooldownMs > 0) this.attackCooldownMs = Math.max(0, this.attackCooldownMs - delta);
     if (this.spellCooldownMs > 0) this.spellCooldownMs = Math.max(0, this.spellCooldownMs - delta);
@@ -500,8 +533,8 @@ export class DungeonScene extends Phaser.Scene {
       tileCfg.tilesetKey,
       TILE_SIZE,
       TILE_SIZE,
-      0,
-      0,
+      1,
+      2,
       1
     );
     if (!tileset) throw new Error('Tileset não carregado.');
@@ -544,6 +577,19 @@ export class DungeonScene extends Phaser.Scene {
       layout.startTile.tileX,
       layout.startTile.tileY
     );
+    const hasSanctuaryV4 = this.textures.exists('dungeon_sanctuary_elevator_v4_sheet');
+    const isSanctuaryFloor = this.floor === 5 || this.floor === 10;
+    const isCheckpointFloor =
+      this.floor === 1 || this.floor === 4 || this.floor === 7 || this.floor === 10;
+    if (hasSanctuaryV4) {
+      const elevatorPedestal = this.add
+        .sprite(startCenter.x, startCenter.y, 'dungeon_sanctuary_elevator_v4_sheet', 0)
+        .setDepth(1);
+      if (isCheckpointFloor && this.anims.exists('runic_elevator_active_anim')) {
+        elevatorPedestal.play('runic_elevator_active_anim');
+      }
+    }
+
     this.player = new Player(this, startCenter.x, startCenter.y);
     this.physics.add.collider(this.player, collisions);
 
@@ -562,14 +608,19 @@ export class DungeonScene extends Phaser.Scene {
 
     for (const chest of layout.treasureChests) {
       const pos = this.gridSystem.tileToWorldCenter(chest.tileX, chest.tileY);
-      const visual = hasDetailSheet
-        ? this.add
-          .sprite(pos.x, pos.y - 2, 'dungeons_details_sheet', DUNGEON_DETAIL_FRAMES.CHEST_CLOSED)
-          .setDepth(pos.y)
-        : this.add
-          .rectangle(pos.x, pos.y, 18, 14, 0x7c4d2b, 0.95)
-          .setStrokeStyle(2, 0xf5b942, 1)
-          .setDepth(pos.y);
+      const visual =
+        hasSanctuaryV4 && isSanctuaryFloor
+          ? this.add
+            .sprite(pos.x, pos.y - 4, 'dungeon_sanctuary_elevator_v4_sheet', 6)
+            .setDepth(pos.y)
+          : hasDetailSheet
+          ? this.add
+            .sprite(pos.x, pos.y - 2, 'dungeons_details_sheet', DUNGEON_DETAIL_FRAMES.CHEST_CLOSED)
+            .setDepth(pos.y)
+          : this.add
+            .rectangle(pos.x, pos.y, 18, 14, 0x7c4d2b, 0.95)
+            .setStrokeStyle(2, 0xf5b942, 1)
+            .setDepth(pos.y);
       const label = this.add
         .text(pos.x, pos.y - 18, 'Baú [E]', {
           fontSize: '10px',
@@ -582,10 +633,16 @@ export class DungeonScene extends Phaser.Scene {
       this.chestNodes.push({ ...chest, opened: false, visual, label });
     }
 
+    const exitCenter = this.gridSystem.tileToWorldCenter(layout.exitTile.tileX, layout.exitTile.tileY);
+    if (hasSanctuaryV4 && isSanctuaryFloor) {
+      this.add
+        .sprite(exitCenter.x, exitCenter.y - 4, 'dungeon_sanctuary_elevator_v4_sheet', 3)
+        .setDepth(3);
+    }
+
     if (hasDetailSheet) {
       // Pad de saída animado
-      const exitCenter = this.gridSystem.tileToWorldCenter(layout.exitTile.tileX, layout.exitTile.tileY);
-      if (this.anims.exists('dungeon_portal_anim')) {
+      if ((!isSanctuaryFloor || !hasSanctuaryV4) && this.anims.exists('dungeon_portal_anim')) {
         const portalPad = this.add
           .sprite(exitCenter.x, exitCenter.y, 'dungeons_details_sheet', DUNGEON_DETAIL_FRAMES.PORTAL_PAD_1)
           .setAlpha(0.92)
@@ -673,7 +730,11 @@ export class DungeonScene extends Phaser.Scene {
     for (const fount of layout.healingFountains) {
       const pos = this.gridSystem.tileToWorldCenter(fount.tileX, fount.tileY);
       let visual: Phaser.GameObjects.Sprite | Phaser.GameObjects.Ellipse;
-      if (this.textures.exists('omena_world_props_sheet') && this.anims.exists('nucleo_mundo_pulse')) {
+      if (hasSanctuaryV4) {
+        visual = this.add
+          .sprite(pos.x, pos.y - 4, 'dungeon_sanctuary_elevator_v4_sheet', 4)
+          .setDepth(pos.y);
+      } else if (this.textures.exists('omena_world_props_sheet') && this.anims.exists('nucleo_mundo_pulse')) {
         visual = this.add
           .sprite(pos.x, pos.y - 2, 'omena_world_props_sheet', 0)
           .setScale(0.72)
@@ -754,8 +815,8 @@ export class DungeonScene extends Phaser.Scene {
         tileCfg.tilesetKey,
         TILE_SIZE,
         TILE_SIZE,
-        0,
-        0,
+        1,
+        2,
         1
       );
       if (!themedTileset) throw new Error('Tileset temático da arena não carregado.');
@@ -1631,14 +1692,38 @@ export class DungeonScene extends Phaser.Scene {
         }
         this.onGuardianFreed();
       } else {
-        const drop = this.unstableRift
-          ? Math.random() < 0.45
-            ? 'quartzo_bruto'
-            : 'minerio_cobre'
-          : Math.random() < 0.5
-            ? 'pedra'
-            : 'minerio_cobre';
-        this.inventorySystem.addItem(drop, 1);
+        const eliteKinds: ReadonlySet<EnemyKind> = new Set([
+          'colosso_granito',
+          'salamandra_abissal',
+          'anomalia_magnetica',
+          'executor_omena',
+        ]);
+        const tier2Kinds: ReadonlySet<EnemyKind> = new Set([
+          'totem_condor',
+          'morcego_estalactite',
+          'androide_xenotecnico',
+          'arauto_abismo',
+        ]);
+        let drop = 'pedra';
+        let dropQty = 1;
+        if (eliteKinds.has(enemyKind)) {
+          drop = Math.random() < 0.45 ? 'liga_estelar' : 'quartzo_refinado';
+          const goldDrop = this.unstableRift ? 28 : 16;
+          gameState.getState().gold += goldDrop;
+          EventBus.emit('GOLD_UPDATED', { gold: gameState.getState().gold });
+        } else if (tier2Kinds.has(enemyKind)) {
+          drop = Math.random() < 0.5 ? 'quartzo_bruto' : 'minerio_cobre';
+          dropQty = this.unstableRift ? 2 : 1;
+        } else {
+          drop = this.unstableRift
+            ? Math.random() < 0.45
+              ? 'quartzo_bruto'
+              : 'minerio_cobre'
+            : Math.random() < 0.5
+              ? 'pedra'
+              : 'minerio_cobre';
+        }
+        this.inventorySystem.addItem(drop, dropQty);
         EventBus.emit('INVENTORY_UPDATED', { selectedIndex: gameState.getState().selectedHotbarIndex });
       }
     }
@@ -1740,8 +1825,12 @@ export class DungeonScene extends Phaser.Scene {
       const center = this.gridSystem.tileToWorldCenter(chest.tileX, chest.tileY);
       if (Phaser.Math.Distance.Between(feet.x, feet.y, center.x, center.y) <= 44) {
         chest.opened = true;
-        if (chest.visual instanceof Phaser.GameObjects.Sprite && this.anims.exists('dungeon_chest_open_anim')) {
-          chest.visual.play('dungeon_chest_open_anim');
+        if (chest.visual instanceof Phaser.GameObjects.Sprite) {
+          if (chest.visual.texture.key === 'dungeon_sanctuary_elevator_v4_sheet') {
+            chest.visual.setFrame(7);
+          } else if (this.anims.exists('dungeon_chest_open_anim')) {
+            chest.visual.play('dungeon_chest_open_anim');
+          }
         } else if (chest.visual instanceof Phaser.GameObjects.Rectangle) {
           chest.visual.setFillStyle(0x3f2e22, 0.7).setStrokeStyle(1, 0x78716c, 0.8);
         }
@@ -1786,24 +1875,66 @@ export class DungeonScene extends Phaser.Scene {
           state.vitals.stamina = Math.min(state.vitals.maxStamina, state.vitals.stamina + 10);
           EventBus.emit('VITALS_UPDATED', { vitals: state.vitals });
         }
-        const LORE_TEXT: Record<DungeonId, string> = {
-          machu_picchu:
-            'Inscrição Inca: "Quando o solo adormece sob aço frio, somente o Pilar Telúrico devolve o pulso às raízes do mundo."',
-          chapada:
-            'Placa de Quartzo Límpido: "As águas da Chapada cantam em três tons; quem purifica a correnteza encontra a Maré Curativa."',
-          varginha:
-            'Obelisco Estelar: "Além das frequências de Omena, o Raio Estelar rasga a tempestade e renova o passo do guardião."',
-          fortaleza_omena:
-            'Página do Diário de Omena: "Eles chamam de preservação estática o que eu chamo de paz eterna... mas o Núcleo do Mundo resiste."',
+        const FLOOR_LORE: Record<DungeonId, readonly string[]> = {
+          machu_picchu: [
+            'Andar 1 — "Os primeiros degraus de granito ainda guardam o calor dos antigos observatórios solares."',
+            'Andar 2 — "Quando o solo adormece sob aço frio, somente o Pilar Telúrico devolve o pulso às raízes do mundo."',
+            'Andar 3 — "Escaravelhos dourados poliam os condutos subterrâneos para que a seiva de Quartzo fluísse até Minas Gerais."',
+            'Andar 4 — "Sob os terraços ocultos, descobrimos que Machu Picchu e São Tomé dos Números repousam sobre a mesma veia telúrica."',
+            'Andar 5 (Santuário) — "Neste altar intermediário, os peregrinos agradeciam às pedras antes de descerem às câmaras solares."',
+            'Andar 6 — "Os Totens do Condor cantavam para acordar sementes antigas durante os invernos mais rigorosos."',
+            'Andar 7 — "Quando Omena tocou a fenda da Terra, até os colossos de obsidiana perderam o sono tranquilo."',
+            'Andar 8 — "Lupin escreveu aqui à margem: as pedras não guardam rancor, apenas aguardam mãos pacientes que plantem de novo."',
+            'Andar 9 — "A poucos passos do altar, o pulsar do Guardião da Terra já aquece o pó de quartzo sob suas botas."',
+            'Andar 10 (Ante-Câmara) — "Respire fundo na última fonte sagrada: além destas escadas aguarda o espírito milenar da montanha."',
+          ],
+          chapada: [
+            'Andar 1 — "A água que brota nestas grutas traz consigo a memória da chuva que rega a Fazenda da Névoa."',
+            'Andar 2 — "As águas da Chapada cantam em três tons; quem purifica a correnteza encontra a Maré Curativa."',
+            'Andar 3 — "Limoches de quartzo rosa nascem onde gotas de neblina repousam por séculos sobre cristais puros."',
+            'Andar 4 — "Os antigos guardiões da Chapada trocavam sementes de Lúpulo Estelar com os camponeses da Serra da Mantiqueira."',
+            'Andar 5 (Santuário) — "Lago Silencioso: aqui os viajantes descansavam os pés e afinavam seus frascos na fonte límpida."',
+            'Andar 6 — "Morcegos de ametista enxergam pelo eco das notas musicais que você desperta nos pilares 1, 2 e 3."',
+            'Andar 7 — "Mais fundo que a luz do dia, salamandras de diamante protegem os desvios da corrente subterrânea."',
+            'Andar 8 — "Quando a névoa de Omena congelou os poços, as plantações da superfície começaram a perder o brilho."',
+            'Andar 9 — "Ouça a melodia crescente: cada cristal afinado abre o caminho até o lago central do Guardião."',
+            'Andar 10 (Ante-Câmara) — "As águas puras deste santuário preparam o seu espírito para harmonizar o Guardião das Águas."',
+          ],
+          varginha: [
+            'Andar 1 — "Frequências metálicas zumbem nas paredes: esta não é uma caverna comum, mas um posto de escuta estelar."',
+            'Andar 2 — "Além das frequências de Omena, o Raio Estelar rasga a tempestade e renova o passo do guardião."',
+            'Andar 3 — "Drones cinzentos foram programados originalmente para mapear chuvas e rotas migratórias sobre o sul de Minas."',
+            'Andar 4 — "Registros de Lyra indicam que um farol caído nos arredores de Varginha alimentava a bruma protetora da vila."',
+            'Andar 5 (Santuário) — "Módulo de Repouso: uma câmara estabilizada onde o vento estelar acalma a fadiga do viajante."',
+            'Andar 6 — "Autômatos xenotécnicos ainda patrulham os corredores repetindo sinais de socorro de séculos atrás."',
+            'Andar 7 — "Anomalias eletromagnéticas distorcem a bússola, mas nunca enganam quem segue a luz serena de Lupin."',
+            'Andar 8 — "Os arquivos revelam que Omena não invadiu de fora: ele temia perder este mundo perfeito no tempo."',
+            'Andar 9 — "Relâmpagos silenciosos riscam o teto de quartzo — o Núcleo da Tempestade Eterna está logo adiante."',
+            'Andar 10 (Ante-Câmara) — "Última estação antes da cúpula dos ventos. Recarregue sua mana e siga com coragem."',
+          ],
+          fortaleza_omena: [
+            'Andar 1 — "Página do Diário de Omena: Eles chamam de preservação estática o que eu chamo de paz eterna... mas o Núcleo resiste."',
+            'Andar 2 — "Aqui, o próprio tempo foi tecido em fios de quartzo escuro para que nenhuma estação jamais passasse."',
+            'Andar 3 — "Sombras errantes são fragmentos de sonhos antigos que Omena tentou guardar em vidros imóveis."',
+            'Andar 4 — "Mas um jardim sem estações não floresce, e uma vila sem manhãs não colhe o pão de cada dia."',
+            'Andar 5 (Santuário) — "Mesmo na fortaleza de Omena, brota uma centelha da Fonte de São Tomé lembrando-o do lar."',
+            'Andar 6 — "Arautos carmesins guardam as páginas perdidas do grimório que Lupin confiou ao primeiro Protetor."',
+            'Andar 7 — "O seu cajado ressoa com as três bênçãos — Terra, Águas e Céus — respondendo em uníssono."',
+            'Andar 8 — "Executores reais protegem os anéis internos; cada vitória aqui fortalece a colheita em São Tomé."',
+            'Andar 9 — "A bruma pesada se abre. Omena espera onde todas as linhas ley convergem sob o Núcleo do Mundo."',
+            'Andar 10 (Ante-Câmara) — "Última estela antes do Trono de Omena. Mostre que a mudança e o cuidado vencem a estagnação!"',
+          ],
         };
+        const floorIndex = Math.max(0, Math.min(9, this.floor - 1));
+        const loreLine = FLOOR_LORE[this.dungeonId][floorIndex] ?? FLOOR_LORE[this.dungeonId][0]!;
         EventBus.emit('AUDIO_PLAY_SFX', { kind: 'magic' });
         EventBus.emit('QUESTS_UPDATED');
         EventBus.emit('OPEN_DIALOGUE', {
           speaker: 'Estela Antiga',
-          title: DUNGEON_THEMES[this.dungeonId].dungeonTitle,
+          title: `${DUNGEON_THEMES[this.dungeonId].dungeonTitle} — Andar ${this.floor}/${TOTAL_PROCEDURAL_FLOORS}`,
           portraitColor: '#7e8ce0',
           lines: [
-            LORE_TEXT[this.dungeonId],
+            loreLine,
             firstRead
               ? 'Ao decifrar o glifo pela primeira vez, você recupera +15 Mana e +10 Stamina!'
               : 'Você já registrou esta inscrição no seu Compêndio Arcano.',
@@ -1821,6 +1952,8 @@ export class DungeonScene extends Phaser.Scene {
         fount.used = true;
         if (fount.visual instanceof Phaser.GameObjects.Ellipse) {
           fount.visual.setFillStyle(0x334155, 0.45).setStrokeStyle(1, 0x64748b, 0.7);
+        } else if (fount.visual.texture.key === 'dungeon_sanctuary_elevator_v4_sheet') {
+          fount.visual.setFrame(5).clearTint().setAlpha(0.9);
         } else {
           fount.visual.stop();
           fount.visual.setTint(0x64748b).setAlpha(0.55);

@@ -99,4 +99,25 @@ describe('Fase 1 (V2): Unicórnios, Encantamentos Elementais e Ato II (2.1–2.2
     expect(quests.tryTurnInSideQuest('sq_tonico_nevoa').ok).toBe(true);
     expect(inv.countItem('tonico_nevoa')).toBe(2);
   });
+
+  it('permite usar safras mágicas como catalisador elemental na sintonização de unicórnios', () => {
+    const state = createInitialGameState();
+    const inv = new InventorySystem(state);
+    const ench = new EnchantmentSystem(state, inv);
+
+    state.unicorns.push({
+      id: 'uni_cat',
+      name: 'Estrela',
+      rolledEnchants: ['fogo', 'fogo', 'fogo'],
+      lastMilkDay: 1,
+    });
+    inv.addItem('quartzo_refinado', 1);
+    inv.addItem('raiz_de_quartzo', 1);
+
+    const res = ench.rerollUnicorn('uni_cat', () => 0.99, 'raiz_de_quartzo');
+    expect(res.ok).toBe(true);
+    expect(res.rolledEnchants?.[0]).toBe('terra');
+    expect(inv.countItem('raiz_de_quartzo')).toBe(0);
+    expect(inv.countItem('quartzo_refinado')).toBe(0);
+  });
 });

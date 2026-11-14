@@ -1,5 +1,26 @@
 export type DungeonId = 'machu_picchu' | 'chapada' | 'varginha' | 'fortaleza_omena';
 
+export const TOTAL_PROCEDURAL_FLOORS = 10;
+
+export type DungeonEnemyKind =
+  | 'golem_pedra'
+  | 'espectro_ruina'
+  | 'serpente_cristal'
+  | 'sonda_ufologica'
+  | 'sentinela_omena'
+  | 'escaravelho_inca'
+  | 'totem_condor'
+  | 'colosso_granito'
+  | 'lodo_quartzo'
+  | 'morcego_estalactite'
+  | 'salamandra_abissal'
+  | 'drone_alfa'
+  | 'androide_xenotecnico'
+  | 'anomalia_magnetica'
+  | 'sombra_errante'
+  | 'arauto_abismo'
+  | 'executor_omena';
+
 export interface DungeonRoom {
   x: number;
   y: number;
@@ -16,12 +37,7 @@ export interface CrystalPuzzleNode {
 }
 
 export interface EnemySpawnPoint {
-  kind:
-    | 'golem_pedra'
-    | 'espectro_ruina'
-    | 'serpente_cristal'
-    | 'sonda_ufologica'
-    | 'sentinela_omena';
+  kind: DungeonEnemyKind;
   tileX: number;
   tileY: number;
 }
@@ -116,18 +132,71 @@ function pickEnemyKind(
   dungeonId: DungeonId,
   index: number,
   floorNumber: number
-): EnemySpawnPoint['kind'] {
-  const even = (index + floorNumber) % 2 === 0;
+): DungeonEnemyKind {
+  let pool: readonly DungeonEnemyKind[];
   if (dungeonId === 'chapada') {
-    return even ? 'serpente_cristal' : 'espectro_ruina';
+    pool =
+      floorNumber <= 3
+        ? ['serpente_cristal', 'lodo_quartzo', 'espectro_ruina']
+        : floorNumber <= 6
+        ? ['lodo_quartzo', 'morcego_estalactite', 'serpente_cristal']
+        : ['morcego_estalactite', 'salamandra_abissal', 'serpente_cristal', 'lodo_quartzo'];
+  } else if (dungeonId === 'varginha') {
+    pool =
+      floorNumber <= 3
+        ? ['sonda_ufologica', 'drone_alfa', 'espectro_ruina']
+        : floorNumber <= 6
+        ? ['drone_alfa', 'androide_xenotecnico', 'sonda_ufologica']
+        : ['androide_xenotecnico', 'anomalia_magnetica', 'sonda_ufologica', 'drone_alfa'];
+  } else if (dungeonId === 'fortaleza_omena') {
+    pool =
+      floorNumber <= 3
+        ? ['sentinela_omena', 'sombra_errante', 'sonda_ufologica']
+        : floorNumber <= 6
+        ? ['sombra_errante', 'arauto_abismo', 'sentinela_omena']
+        : ['arauto_abismo', 'executor_omena', 'sentinela_omena', 'sombra_errante'];
+  } else {
+    pool =
+      floorNumber <= 3
+        ? ['golem_pedra', 'escaravelho_inca', 'espectro_ruina']
+        : floorNumber <= 6
+        ? ['escaravelho_inca', 'totem_condor', 'golem_pedra', 'espectro_ruina']
+        : ['totem_condor', 'colosso_granito', 'escaravelho_inca', 'golem_pedra'];
   }
-  if (dungeonId === 'varginha') {
-    return even ? 'sonda_ufologica' : 'espectro_ruina';
+
+  return pool[(index + Math.max(0, floorNumber - 1)) % pool.length] ?? 'golem_pedra';
+}
+
+export function getUnlockedDungeonCheckpoints(
+  flags: Record<string, boolean>,
+  dungeonId: DungeonId
+): number[] {
+  const checkpoints = [1];
+  if (flags[`dungeon_cp_${dungeonId}_5`]) checkpoints.push(5);
+  if (flags[`dungeon_cp_${dungeonId}_10`]) checkpoints.push(10);
+  if (flags[`dungeon_cp_${dungeonId}_boss`]) checkpoints.push(TOTAL_PROCEDURAL_FLOORS + 1);
+  return checkpoints;
+}
+
+export function recordDungeonCheckpoint(
+  flags: Record<string, boolean>,
+  dungeonId: DungeonId,
+  floor: number
+): number | null {
+  let newlyUnlocked: number | null = null;
+  if (floor >= 5 && !flags[`dungeon_cp_${dungeonId}_5`]) {
+    flags[`dungeon_cp_${dungeonId}_5`] = true;
+    newlyUnlocked = 5;
   }
-  if (dungeonId === 'fortaleza_omena') {
-    return even ? 'sentinela_omena' : 'sonda_ufologica';
+  if (floor >= 10 && !flags[`dungeon_cp_${dungeonId}_10`]) {
+    flags[`dungeon_cp_${dungeonId}_10`] = true;
+    newlyUnlocked = 10;
   }
-  return even ? 'espectro_ruina' : 'golem_pedra';
+  if (floor > TOTAL_PROCEDURAL_FLOORS && !flags[`dungeon_cp_${dungeonId}_boss`]) {
+    flags[`dungeon_cp_${dungeonId}_boss`] = true;
+    newlyUnlocked = TOTAL_PROCEDURAL_FLOORS + 1;
+  }
+  return newlyUnlocked;
 }
 
 export function generateDungeonFloor(
@@ -150,7 +219,7 @@ export function generateDungeonFloor(
   };
 
   const rooms: DungeonRoom[] = [];
-  const targetRooms = 5;
+  const targetRooms = floorNumber <= 3 ? 4 : floorNumber <= 7 ? 5 : 6;
 
   for (let attempt = 0; attempt < 40 && rooms.length < targetRooms; attempt++) {
     const rw = 4 + Math.floor(rng() * 4);
@@ -231,8 +300,8 @@ export function generateDungeonFloor(
     const room = rooms[rIdx];
     if (!room) continue;
 
-    // Inimigos por sala
-    const enemyCount = 1 + Math.floor(rng() * 2);
+    // Inimigos por sala (escalonamento progressivo até o Andar 10)
+    const enemyCount = 1 + Math.floor(rng() * 2) + (floorNumber >= 6 && rIdx % 2 === 1 ? 1 : 0);
     for (let e = 0; e < enemyCount; e++) {
       const ex = room.x + 1 + Math.floor(rng() * Math.max(1, room.w - 2));
       const ey = room.y + 1 + Math.floor(rng() * Math.max(1, room.h - 2));
@@ -240,7 +309,7 @@ export function generateDungeonFloor(
         continue;
       }
       enemySpawns.push({
-        kind: pickEnemyKind(dungeonId, e, floorNumber),
+        kind: pickEnemyKind(dungeonId, e + rIdx, floorNumber),
         tileX: ex,
         tileY: ey,
       });
@@ -254,19 +323,23 @@ export function generateDungeonFloor(
       trapTiles.push({ tileX: tx, tileY: ty });
     }
 
-    // Veio de minério em um canto da sala (só se não fechar a sala)
-    const ox = room.x;
-    const oy = room.y;
-    if (
-      !(ox === exitTile.tileX && oy === exitTile.tileY) &&
-      !(ox === startTile.tileX && oy === startTile.tileY)
-    ) {
-      const prevGid = collisionGids[oy * width + ox] ?? 0;
-      collisionGids[oy * width + ox] = MACHU_GID.ORE;
-      if (isFloorReachable({ width, height, collisionGids }, startTile, exitTile)) {
-        oreTiles.push({ tileX: ox, tileY: oy });
-      } else {
-        collisionGids[oy * width + ox] = prevGid;
+    // Veios de minério em cantos da sala (andares profundos >= 5 ganham segundo veio quando possível)
+    const oreCorners: [number, number][] = [[room.x, room.y]];
+    if (floorNumber >= 5 && room.w >= 4) {
+      oreCorners.push([room.x + room.w - 1, room.y + room.h - 1]);
+    }
+    for (const [ox, oy] of oreCorners) {
+      if (
+        !(ox === exitTile.tileX && oy === exitTile.tileY) &&
+        !(ox === startTile.tileX && oy === startTile.tileY)
+      ) {
+        const prevGid = collisionGids[oy * width + ox] ?? 0;
+        collisionGids[oy * width + ox] = MACHU_GID.ORE;
+        if (isFloorReachable({ width, height, collisionGids }, startTile, exitTile)) {
+          oreTiles.push({ tileX: ox, tileY: oy });
+        } else {
+          collisionGids[oy * width + ox] = prevGid;
+        }
       }
     }
   }
@@ -346,8 +419,9 @@ export function generateDungeonFloor(
     return null;
   };
 
+  const isSanctuaryFloor = floorNumber === 5 || floorNumber === 10;
   const treasureChests: { tileX: number; tileY: number }[] = [];
-  const chestTarget = rng() < 0.45 ? 2 : 1;
+  const chestTarget = isSanctuaryFloor ? 2 : rng() < 0.45 ? 2 : 1;
   for (let i = 0; i < chestTarget; i++) {
     const slot = pickFreePoiTile();
     if (slot) treasureChests.push(slot);
@@ -364,7 +438,7 @@ export function generateDungeonFloor(
   }
 
   const healingFountains: { tileX: number; tileY: number }[] = [];
-  if (floorNumber >= 2 || rng() < 0.6) {
+  if (isSanctuaryFloor || floorNumber >= 2 || rng() < 0.6) {
     const fountSlot = pickFreePoiTile();
     if (fountSlot) healingFountains.push(fountSlot);
   }

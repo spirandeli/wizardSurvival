@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { GameStateSnapshot, GameTimeSnapshot, PlayerVitals, UserPublic } from '@shared/types';
-import type { SfxKind } from '../systems/AudioSystem';
+import type { SfxKind, StepSurface } from '../systems/AudioSystem';
 
 export type DialogueMood = 'normal' | 'alegre' | 'misterio' | 'alerta' | 'ironia';
 
@@ -36,7 +36,7 @@ export interface GameEvents {
   GAME_SAVED: { updatedAt: string };
   GAME_SAVE_ERROR: { message: string };
   MAP_CHANGED: { mapId: string; mapLabel: string };
-  AUDIO_PLAY_SFX: { kind: SfxKind };
+  AUDIO_PLAY_SFX: { kind: SfxKind; surface?: StepSurface };
   TILE_INTERACT: { mapId: string; tileX: number; tileY: number };
   TIME_TICK: { time: GameTimeSnapshot };
   VITALS_UPDATED: { vitals: PlayerVitals };

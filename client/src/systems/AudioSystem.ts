@@ -1,6 +1,7 @@
 import { EventBus } from '../core/EventBus';
 
 export type SfxKind = 'step' | 'portal' | 'interact' | 'error' | 'farm' | 'magic' | 'craft';
+export type StepSurface = 'grass' | 'stone' | 'wood' | 'water';
 
 interface MusicTheme {
   notes: number[];
@@ -79,8 +80,8 @@ export class AudioSystem {
       this.playMapTheme(mapId);
     });
 
-    EventBus.on('AUDIO_PLAY_SFX', ({ kind }) => {
-      this.playSfx(kind);
+    EventBus.on('AUDIO_PLAY_SFX', ({ kind, surface }) => {
+      this.playSfx(kind, surface);
     });
   }
 
@@ -128,13 +129,22 @@ export class AudioSystem {
     }
   }
 
-  playSfx(kind: SfxKind): void {
+  playSfx(kind: SfxKind, surface: StepSurface = 'grass'): void {
     if (this.isMuted || !this.ctx || this.ctx.state !== 'running') return;
 
     switch (kind) {
-      case 'step':
-        this.playTone(130, 0.05, 'triangle', 0.025);
+      case 'step': {
+        if (surface === 'stone') {
+          this.playTone(210, 0.035, 'triangle', 0.024);
+        } else if (surface === 'wood') {
+          this.playTone(155, 0.055, 'sine', 0.028);
+        } else if (surface === 'water') {
+          this.playTone(280, 0.06, 'sine', 0.025);
+        } else {
+          this.playTone(115, 0.045, 'triangle', 0.022);
+        }
         break;
+      }
       case 'interact':
         this.playTone(523.25, 0.09, 'sine', 0.05);
         break;

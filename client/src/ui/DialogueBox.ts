@@ -25,15 +25,41 @@ function resolveSpeakerPortraitUrl(
     const id = mood === 'alegre' ? 'rafael_alegre' : 'rafael';
     return `/assets/portraits/${id}.png`;
   }
-  if (normalized.startsWith('tome')) return '/assets/portraits/tome.png';
-  if (normalized.startsWith('bento')) return '/assets/portraits/bento.png';
-  if (normalized.startsWith('isis')) return '/assets/portraits/isis.png';
-  if (normalized.startsWith('lyra')) return '/assets/portraits/lyra.png';
-  if (normalized.includes('zeca')) return '/assets/portraits/seu_zeca.png';
-  if (normalized.includes('arlindo')) return '/assets/portraits/prefeito_arlindo.png';
-  if (normalized.includes('damiao')) return '/assets/portraits/seu_damiao.png';
-  if (normalized.startsWith('remo')) return '/assets/portraits/remo.png';
-  if (normalized.startsWith('lupin')) return '/assets/portraits/lupin.png';
+  if (normalized.startsWith('tome')) {
+    const id =
+      mood === 'alegre'
+        ? 'tome_alegre'
+        : mood === 'alerta' || mood === 'misterio'
+        ? 'tome_determinado'
+        : 'tome';
+    return `/assets/portraits/${id}.png`;
+  }
+  if (normalized.startsWith('bento')) {
+    return `/assets/portraits/${mood === 'alegre' ? 'bento_sorrindo' : 'bento'}.png`;
+  }
+  if (normalized.startsWith('isis')) {
+    return `/assets/portraits/${mood === 'misterio' || mood === 'alerta' ? 'isis_mistica' : 'isis'}.png`;
+  }
+  if (normalized.startsWith('lyra')) {
+    return `/assets/portraits/${mood === 'alegre' ? 'lyra_alegre' : 'lyra'}.png`;
+  }
+  if (normalized.includes('zeca')) {
+    return `/assets/portraits/${mood === 'alegre' || mood === 'ironia' ? 'seu_zeca_rindo' : 'seu_zeca'}.png`;
+  }
+  if (normalized.includes('arlindo')) {
+    return `/assets/portraits/${
+      mood === 'alerta' || mood === 'misterio' ? 'prefeito_arlindo_preocupado' : 'prefeito_arlindo'
+    }.png`;
+  }
+  if (normalized.includes('damiao')) {
+    return `/assets/portraits/${mood === 'alerta' || mood === 'misterio' ? 'seu_damiao_firme' : 'seu_damiao'}.png`;
+  }
+  if (normalized.startsWith('remo')) {
+    return `/assets/portraits/${mood === 'alegre' ? 'remo_busto' : 'remo'}.png`;
+  }
+  if (normalized.startsWith('lupin')) {
+    return `/assets/portraits/${mood === 'alegre' ? 'lupin_busto' : 'lupin'}.png`;
+  }
   if (normalized.includes('guardiao da terra')) return '/assets/portraits/guardiao_terra.png';
   if (normalized.includes('guardiao das aguas')) return '/assets/portraits/guardiao_aguas.png';
   if (normalized.includes('guardiao dos ceus')) return '/assets/portraits/guardiao_ceus.png';

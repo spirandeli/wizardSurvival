@@ -7,6 +7,18 @@ export type EnemyKind =
   | 'serpente_cristal'
   | 'sonda_ufologica'
   | 'sentinela_omena'
+  | 'escaravelho_inca'
+  | 'totem_condor'
+  | 'colosso_granito'
+  | 'lodo_quartzo'
+  | 'morcego_estalactite'
+  | 'salamandra_abissal'
+  | 'drone_alfa'
+  | 'androide_xenotecnico'
+  | 'anomalia_magnetica'
+  | 'sombra_errante'
+  | 'arauto_abismo'
+  | 'executor_omena'
   | 'guardiao_terra'
   | 'guardiao_aguas'
   | 'guardiao_ceus'
@@ -31,6 +43,8 @@ interface EnemyStats {
   canFireRanged?: boolean;
   rangedIntervalMs?: number;
   boltTexture?: string;
+  tint?: number;
+  baseScale?: number;
 }
 
 const ENEMY_CONFIGS: Record<EnemyKind, EnemyStats> = {
@@ -180,6 +194,244 @@ const ENEMY_CONFIGS: Record<EnemyKind, EnemyStats> = {
     rangedIntervalMs: 2200,
     boltTexture: 'omena_bolt',
   },
+  // Machu Picchu — 3 novas criaturas
+  escaravelho_inca: {
+    texture: 'enemy_golem_pedra',
+    sheetKey: 'enemy_escaravelho_inca_sheet',
+    idleAnim: 'escaravelho_inca_idle',
+    walkUpAnim: 'escaravelho_inca_walk_up',
+    windupAnim: 'escaravelho_inca_windup',
+    attackAnim: 'escaravelho_inca_attack',
+    hurtAnim: 'escaravelho_inca_hurt',
+    deathAnim: 'escaravelho_inca_death',
+    maxHp: 38,
+    speed: 98,
+    physicalDamage: 9,
+    elementalDamage: { terra: 6 },
+    resistances: { terra: 0.35 },
+    isBoss: false,
+    tint: 0xfbbf24,
+    baseScale: 0.85,
+  },
+  totem_condor: {
+    texture: 'enemy_espectro_ruina',
+    sheetKey: 'enemy_totem_condor_sheet',
+    idleAnim: 'totem_condor_idle',
+    walkUpAnim: 'totem_condor_walk_up',
+    windupAnim: 'totem_condor_windup',
+    attackAnim: 'totem_condor_attack',
+    hurtAnim: 'totem_condor_hurt',
+    deathAnim: 'totem_condor_death',
+    maxHp: 54,
+    speed: 84,
+    physicalDamage: 8,
+    elementalDamage: { terra: 8, fogo: 6 },
+    resistances: { terra: 0.25, fogo: 0.25 },
+    isBoss: false,
+    canFireRanged: true,
+    rangedIntervalMs: 2400,
+    boltTexture: 'enemy_rock_bolt',
+    tint: 0xf97316,
+    baseScale: 1.04,
+  },
+  colosso_granito: {
+    texture: 'enemy_golem_pedra',
+    sheetKey: 'enemy_colosso_granito_sheet',
+    idleAnim: 'colosso_granito_idle',
+    walkUpAnim: 'colosso_granito_walk_up',
+    windupAnim: 'colosso_granito_windup',
+    attackAnim: 'colosso_granito_attack',
+    hurtAnim: 'colosso_granito_hurt',
+    deathAnim: 'colosso_granito_death',
+    maxHp: 82,
+    speed: 56,
+    physicalDamage: 15,
+    elementalDamage: { terra: 10 },
+    resistances: { terra: 0.45 },
+    isBoss: false,
+    tint: 0xa8a29e,
+    baseScale: 1.18,
+  },
+  // Chapada Diamantina — 3 novas criaturas
+  lodo_quartzo: {
+    texture: 'enemy_espectro_ruina',
+    sheetKey: 'enemy_lodo_quartzo_sheet',
+    idleAnim: 'lodo_quartzo_idle',
+    walkUpAnim: 'lodo_quartzo_walk_up',
+    windupAnim: 'lodo_quartzo_windup',
+    attackAnim: 'lodo_quartzo_attack',
+    hurtAnim: 'lodo_quartzo_hurt',
+    deathAnim: 'lodo_quartzo_death',
+    maxHp: 36,
+    speed: 82,
+    physicalDamage: 8,
+    elementalDamage: { agua: 7 },
+    resistances: { agua: 0.35 },
+    isBoss: false,
+    tint: 0xf472b6,
+    baseScale: 0.88,
+  },
+  morcego_estalactite: {
+    texture: 'enemy_sonda_ufologica',
+    sheetKey: 'enemy_morcego_estalactite_sheet',
+    idleAnim: 'morcego_estalactite_idle',
+    walkUpAnim: 'morcego_estalactite_walk_up',
+    windupAnim: 'morcego_estalactite_windup',
+    attackAnim: 'morcego_estalactite_attack',
+    hurtAnim: 'morcego_estalactite_hurt',
+    deathAnim: 'morcego_estalactite_death',
+    maxHp: 50,
+    speed: 116,
+    physicalDamage: 8,
+    elementalDamage: { agua: 7, ar: 6 },
+    resistances: { agua: 0.25, ar: 0.2 },
+    isBoss: false,
+    canFireRanged: true,
+    rangedIntervalMs: 2250,
+    boltTexture: 'water_bolt',
+    tint: 0xc084fc,
+    baseScale: 0.94,
+  },
+  salamandra_abissal: {
+    texture: 'enemy_serpente_cristal',
+    sheetKey: 'enemy_salamandra_abissal_sheet',
+    idleAnim: 'salamandra_abissal_idle',
+    walkUpAnim: 'salamandra_abissal_walk_up',
+    windupAnim: 'salamandra_abissal_windup',
+    attackAnim: 'salamandra_abissal_attack',
+    hurtAnim: 'salamandra_abissal_hurt',
+    deathAnim: 'salamandra_abissal_death',
+    maxHp: 86,
+    speed: 96,
+    physicalDamage: 14,
+    elementalDamage: { agua: 12 },
+    resistances: { agua: 0.45 },
+    isBoss: false,
+    tint: 0x22d3ee,
+    baseScale: 1.15,
+  },
+  // Varginha — 3 novas criaturas
+  drone_alfa: {
+    texture: 'enemy_sonda_ufologica',
+    sheetKey: 'enemy_drone_alfa_sheet',
+    idleAnim: 'drone_alfa_idle',
+    walkUpAnim: 'drone_alfa_walk_up',
+    windupAnim: 'drone_alfa_windup',
+    attackAnim: 'drone_alfa_attack',
+    hurtAnim: 'drone_alfa_hurt',
+    deathAnim: 'drone_alfa_death',
+    maxHp: 39,
+    speed: 114,
+    physicalDamage: 7,
+    elementalDamage: { ar: 8 },
+    resistances: { ar: 0.3 },
+    isBoss: false,
+    canFireRanged: true,
+    rangedIntervalMs: 2150,
+    boltTexture: 'wind_bolt',
+    tint: 0x38bdf8,
+    baseScale: 0.84,
+  },
+  androide_xenotecnico: {
+    texture: 'enemy_sentinela_omena',
+    sheetKey: 'enemy_androide_xenotecnico_sheet',
+    idleAnim: 'androide_xenotecnico_idle',
+    walkUpAnim: 'androide_xenotecnico_walk_up',
+    windupAnim: 'androide_xenotecnico_windup',
+    attackAnim: 'androide_xenotecnico_attack',
+    hurtAnim: 'androide_xenotecnico_hurt',
+    deathAnim: 'androide_xenotecnico_death',
+    maxHp: 72,
+    speed: 90,
+    physicalDamage: 12,
+    elementalDamage: { ar: 8, arcano: 7 },
+    resistances: { ar: 0.35, arcano: 0.2 },
+    isBoss: false,
+    tint: 0xa3e635,
+    baseScale: 1.0,
+  },
+  anomalia_magnetica: {
+    texture: 'enemy_espectro_ruina',
+    sheetKey: 'enemy_anomalia_magnetica_sheet',
+    idleAnim: 'anomalia_magnetica_idle',
+    walkUpAnim: 'anomalia_magnetica_walk_up',
+    windupAnim: 'anomalia_magnetica_windup',
+    attackAnim: 'anomalia_magnetica_attack',
+    hurtAnim: 'anomalia_magnetica_hurt',
+    deathAnim: 'anomalia_magnetica_death',
+    maxHp: 90,
+    speed: 98,
+    physicalDamage: 11,
+    elementalDamage: { ar: 10, arcano: 10 },
+    resistances: { ar: 0.4, arcano: 0.3 },
+    isBoss: false,
+    canFireRanged: true,
+    rangedIntervalMs: 1950,
+    boltTexture: 'wind_bolt',
+    tint: 0x818cf8,
+    baseScale: 1.16,
+  },
+  // Fortaleza de Omena — 3 novas criaturas
+  sombra_errante: {
+    texture: 'enemy_espectro_ruina',
+    sheetKey: 'enemy_sombra_errante_sheet',
+    idleAnim: 'sombra_errante_idle',
+    walkUpAnim: 'sombra_errante_walk_up',
+    windupAnim: 'sombra_errante_windup',
+    attackAnim: 'sombra_errante_attack',
+    hurtAnim: 'sombra_errante_hurt',
+    deathAnim: 'sombra_errante_death',
+    maxHp: 56,
+    speed: 112,
+    physicalDamage: 11,
+    elementalDamage: { arcano: 11 },
+    resistances: { arcano: 0.35 },
+    isBoss: false,
+    tint: 0xa855f7,
+    baseScale: 0.92,
+  },
+  arauto_abismo: {
+    texture: 'enemy_sonda_ufologica',
+    sheetKey: 'enemy_arauto_abismo_sheet',
+    idleAnim: 'arauto_abismo_idle',
+    walkUpAnim: 'arauto_abismo_walk_up',
+    windupAnim: 'arauto_abismo_windup',
+    attackAnim: 'arauto_abismo_attack',
+    hurtAnim: 'arauto_abismo_hurt',
+    deathAnim: 'arauto_abismo_death',
+    maxHp: 78,
+    speed: 92,
+    physicalDamage: 12,
+    elementalDamage: { arcano: 11, fogo: 9 },
+    resistances: { arcano: 0.35, fogo: 0.3 },
+    isBoss: false,
+    canFireRanged: true,
+    rangedIntervalMs: 2050,
+    boltTexture: 'omena_bolt',
+    tint: 0xf43f5e,
+    baseScale: 1.05,
+  },
+  executor_omena: {
+    texture: 'enemy_sentinela_omena',
+    sheetKey: 'enemy_executor_omena_sheet',
+    idleAnim: 'executor_omena_idle',
+    walkUpAnim: 'executor_omena_walk_up',
+    windupAnim: 'executor_omena_windup',
+    attackAnim: 'executor_omena_attack',
+    hurtAnim: 'executor_omena_hurt',
+    deathAnim: 'executor_omena_death',
+    maxHp: 105,
+    speed: 96,
+    physicalDamage: 16,
+    elementalDamage: { arcano: 12, fogo: 10 },
+    resistances: { arcano: 0.4, fogo: 0.35 },
+    isBoss: false,
+    canFireRanged: true,
+    rangedIntervalMs: 1850,
+    boltTexture: 'omena_bolt',
+    tint: 0xdc2626,
+    baseScale: 1.2,
+  },
   omena: {
     texture: 'boss_omena',
     sheetKey: 'boss_omena_sheet',
@@ -202,6 +454,25 @@ const ENEMY_CONFIGS: Record<EnemyKind, EnemyStats> = {
   },
 };
 
+const TEXTURE_TO_FALLBACK_SHEET: Record<string, string> = {
+  enemy_golem_pedra: 'enemy_golem_sheet',
+  enemy_espectro_ruina: 'enemy_wisp_sheet',
+  enemy_serpente_cristal: 'enemy_serpente_sheet',
+  enemy_sonda_ufologica: 'enemy_sonda_sheet',
+  enemy_sentinela_omena: 'enemy_sentinela_sheet',
+};
+
+function resolveEnemySheetKey(scene: Phaser.Scene, cfg: EnemyStats): { key: string | null; isDedicated: boolean } {
+  if (scene.textures.exists(cfg.sheetKey)) {
+    return { key: cfg.sheetKey, isDedicated: true };
+  }
+  const fallback = TEXTURE_TO_FALLBACK_SHEET[cfg.texture];
+  if (fallback && scene.textures.exists(fallback)) {
+    return { key: fallback, isDedicated: false };
+  }
+  return { key: null, isDedicated: false };
+}
+
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
   public readonly kind: EnemyKind;
   public readonly stats: EnemyStats;
@@ -221,13 +492,16 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private specialCooldownMs = 4400;
   private hitFlashMs = 0;
   private readonly useSpriteSheet: boolean;
+  private readonly usingDedicatedSheet: boolean;
   private hpBarBg: Phaser.GameObjects.Rectangle | null = null;
   private hpBarFill: Phaser.GameObjects.Rectangle | null = null;
+  private groundShadow: Phaser.GameObjects.Ellipse | null = null;
 
   constructor(scene: Phaser.Scene, x: number, y: number, kind: EnemyKind) {
     const cfg = ENEMY_CONFIGS[kind];
-    const hasSheet = scene.textures.exists(cfg.sheetKey);
-    super(scene, x, y, hasSheet ? cfg.sheetKey : cfg.texture, hasSheet ? 0 : undefined);
+    const resolved = resolveEnemySheetKey(scene, cfg);
+    const hasSheet = resolved.key !== null;
+    super(scene, x, y, resolved.key ?? cfg.texture, hasSheet ? 0 : undefined);
     this.kind = kind;
     this.stats = cfg;
     this.hp = cfg.maxHp;
@@ -235,6 +509,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.spawnX = x;
     this.spawnY = y;
     this.useSpriteSheet = hasSheet;
+    this.usingDedicatedSheet = resolved.isDedicated;
 
     scene.add.existing(this);
     scene.physics.add.existing(this);
@@ -245,12 +520,23 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       body.setOffset(9, hasSheet ? 26 : 18);
     } else if (hasSheet) {
       body.setSize(22, 18);
-      body.setOffset(13, kind === 'espectro_ruina' ? 20 : 28);
+      body.setOffset(13, resolved.key === 'enemy_wisp_sheet' ? 20 : 28);
     } else {
       body.setSize(22, 18);
       body.setOffset(5, 10);
     }
     body.setCollideWorldBounds(true);
+
+    if (cfg.baseScale && cfg.baseScale !== 1) {
+      this.setScale(cfg.baseScale);
+    }
+    this.restoreBaseTint();
+
+    const shadowW = cfg.isBoss ? 40 : Math.round(22 * (cfg.baseScale ?? 1));
+    const shadowH = cfg.isBoss ? 14 : Math.round(9 * (cfg.baseScale ?? 1));
+    this.groundShadow = scene.add
+      .ellipse(x, y + (cfg.isBoss ? 22 : 16), shadowW, shadowH, 0x0b0914, 0.32)
+      .setDepth(this.y - 0.05);
 
     if (!cfg.isBoss) {
       this.hpBarBg = scene.add
@@ -267,7 +553,20 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     if (hasSheet && scene.anims.exists(cfg.idleAnim)) {
       this.play(cfg.idleAnim);
     }
+    this.groundShadow
+      ?.setPosition(this.x, this.y + (this.stats.isBoss ? 22 : 16))
+      .setDepth(this.y - 0.05);
     this.setDepth(this.y);
+  }
+
+  private restoreBaseTint(): void {
+    if (!this.usingDedicatedSheet && this.stats.tint) {
+      this.setTint(this.stats.tint);
+    } else if (this.stats.tint && this.stats.sheetKey === ENEMY_CONFIGS[this.kind].sheetKey && !this.usingDedicatedSheet) {
+      this.setTint(this.stats.tint);
+    } else {
+      this.clearTint();
+    }
   }
 
   applyRiftBoost(hpMult: number, dmgMult: number): void {
@@ -289,7 +588,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
 
     if (this.hitFlashMs > 0) {
       this.hitFlashMs = Math.max(0, this.hitFlashMs - deltaMs);
-      if (this.hitFlashMs === 0) this.clearTint();
+      if (this.hitFlashMs === 0) this.restoreBaseTint();
     }
 
     const dx = playerX - this.x;
@@ -387,6 +686,9 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
         .setSize(Math.max(1, Math.round(24 * (this.hp / Math.max(1, this.effectiveMaxHp)))), 2.5);
     }
 
+    this.groundShadow
+      ?.setPosition(this.x, this.y + (this.stats.isBoss ? 22 : 16))
+      .setDepth(this.y - 0.05);
     this.setDepth(this.y);
   }
 
@@ -449,7 +751,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     }
     this.hpBarBg?.setVisible(false);
     this.hpBarFill?.setVisible(false);
-    this.clearTint();
+    this.groundShadow?.setVisible(false);
+    this.restoreBaseTint();
 
     if (
       this.useSpriteSheet &&
@@ -501,8 +804,10 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   override destroy(fromScene?: boolean): void {
     this.hpBarBg?.destroy();
     this.hpBarFill?.destroy();
+    this.groundShadow?.destroy();
     this.hpBarBg = null;
     this.hpBarFill = null;
+    this.groundShadow = null;
     super.destroy(fromScene);
   }
 }

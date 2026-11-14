@@ -25,7 +25,11 @@ import {
   getTrapdoorConspiracyTurns,
 } from '../data/storyScenes';
 import { NPC } from '../entities/NPC';
-import type { DungeonId } from '../systems/DungeonGenerator';
+import {
+  getUnlockedDungeonCheckpoints,
+  TOTAL_PROCEDURAL_FLOORS,
+  type DungeonId,
+} from '../systems/DungeonGenerator';
 import { Player } from '../entities/Player';
 import { AnimalSystem } from '../systems/AnimalSystem';
 import { audioSystem } from '../systems/AudioSystem';
@@ -33,7 +37,7 @@ import { CraftingSystem } from '../systems/CraftingSystem';
 import { DayNightSystem } from '../systems/DayNightSystem';
 import { FarmingSystem } from '../systems/FarmingSystem';
 import { GridSystem, makeTileKey } from '../systems/GridSystem';
-import { InventorySystem } from '../systems/InventorySystem';
+import { hasActiveBuff, InventorySystem, tickActiveBuffs } from '../systems/InventorySystem';
 import { ManaSystem } from '../systems/ManaSystem';
 import { NPCSystem } from '../systems/NPCSystem';
 import { QuestSystem } from '../systems/QuestSystem';
@@ -187,6 +191,8 @@ export class WorldScene extends Phaser.Scene {
   private wildlifeIsNight = false;
   private rainSplashAccumMs = 0;
   private npcActivityCheckMs = 0;
+  private harmoniaRegenMs = 0;
+  private meteorSpawnTimerMs = 0;
 
   private interactKey: Phaser.Input.Keyboard.Key | null = null;
   private giftKey: Phaser.Input.Keyboard.Key | null = null;
@@ -213,6 +219,8 @@ export class WorldScene extends Phaser.Scene {
     this.isDialogueOpen = false;
     this.portalCooldownMs = 450;
     this.dialogueCooldownMs = 0;
+    this.harmoniaRegenMs = 0;
+    this.meteorSpawnTimerMs = 0;
     this.portals = [];
     this.portalPromptText = null;
     this.placedColliders = this.physics.add.staticGroup();
@@ -286,6 +294,22 @@ export class WorldScene extends Phaser.Scene {
 
     const spawnPos = this.resolveSpawnPosition(this.map, data);
     this.player = new Player(this, spawnPos.x, spawnPos.y);
+    this.player.setStepSurfaceResolver(() => {
+      if (this.mapId === 'casa' || this.mapId === 'ferraria' || this.mapId === 'botica' || this.mapId === 'pub_pedra') {
+        return 'wood';
+      }
+      if (this.mapId === 'porao' || this.mapId.startsWith('arena_')) {
+        return 'stone';
+      }
+      const feet = this.player.getFeetWorldPosition();
+      const tx = Math.floor(feet.x / TILE_SIZE);
+      const ty = Math.floor(feet.y / TILE_SIZE);
+      const gid = this.chaoLayer?.getTileAt(tx, ty)?.index ?? 0;
+      if (gid === 3 || gid === 4 || gid === 6 || gid === 7) {
+        return 'stone';
+      }
+      return 'grass';
+    });
     this.player.syncEquipmentVisuals(state.equippedWeaponId, state.equippedArmorId);
     state.playerX = spawnPos.x;
     state.playerY = spawnPos.y;
@@ -388,6 +412,44 @@ export class WorldScene extends Phaser.Scene {
       this.dayNightSystem.updateLighting(this.mapId, state.time.minuteOfDay, state.time.weather);
     }
     this.updateVisualAmbience(delta);
+    if (tickActiveBuffs(state, delta)) {
+      EventBus.emit('VITALS_UPDATED', { vitals: state.vitals });
+    }
+    if (hasActiveBuff(state, 'harmonia') && state.vitals.mana < state.vitals.maxMana) {
+      this.harmoniaRegenMs += delta;
+      if (this.harmoniaRegenMs >= 3000) {
+        this.harmoniaRegenMs = 0;
+        state.vitals.mana = Math.min(state.vitals.maxMana, state.vitals.mana + 1);
+        EventBus.emit('VITALS_UPDATED', { vitals: state.vitals });
+      }
+    } else {
+      this.harmoniaRegenMs = 0;
+    }
+
+    const isMeteorNightNow =
+      this.mapId === 'fazenda' &&
+      this.timeSystem.isMeteorShowerNight() &&
+      (state.time.minuteOfDay >= 20 * 60 || state.time.minuteOfDay < 5 * 60);
+    if (isMeteorNightNow) {
+      this.meteorSpawnTimerMs += delta;
+      if (this.meteorSpawnTimerMs >= 1600) {
+        this.meteorSpawnTimerMs = 0;
+        const cam = this.cameras.main;
+        const startX = cam.worldView.x + cam.worldView.width * (0.2 + Math.random() * 0.7);
+        const startY = cam.worldView.y + Math.random() * (cam.worldView.height * 0.45);
+        const star = this.add.rectangle(startX, startY, 14, 2, 0xfef08a, 0.92).setAngle(-32).setDepth(4500);
+        this.tweens.add({
+          targets: star,
+          x: startX - 95,
+          y: startY + 62,
+          alpha: 0,
+          duration: 520,
+          ease: 'Quad.easeOut',
+          onComplete: () => star.destroy(),
+        });
+      }
+    }
+
     if (tickRes.exhausted) {
       this.sleepAndAdvanceDay('exhausted');
       return;
@@ -397,9 +459,61 @@ export class WorldScene extends Phaser.Scene {
     const target = this.gridSystem.getTargetTile(feet.x, feet.y, this.player.facing);
     const cursorCenter = this.gridSystem.tileToWorldCenter(target.tileX, target.tileY);
     this.tileCursor.setPosition(cursorCenter.x, cursorCenter.y);
+    this.updateContextualCursor(target.tileX, target.tileY);
 
     this.handleKeyboardShortcuts(target.tileX, target.tileY);
     this.updatePortalPrompt(target.tileX, target.tileY);
+  }
+
+  private updateContextualCursor(tileX: number, tileY: number): void {
+    const state = gameState.getState();
+    const activeSlot = state.inventory[state.selectedHotbarIndex];
+    const activeDef = activeSlot ? getItemDef(activeSlot.itemId) : undefined;
+    const tile = this.gridSystem.getTile(this.mapId, tileX, tileY);
+    const chaoTile = this.chaoLayer?.getTileAt(tileX, tileY);
+    const colTile = this.colisoesLayer?.getTileAt(tileX, tileY);
+
+    if (tile?.isReadyToHarvest) {
+      this.tileCursor.setTint(0xf5b942).setAlpha(0.95);
+      return;
+    }
+
+    if (!activeDef) {
+      this.tileCursor.setTint(0xd6cfc2).setAlpha(0.32);
+      return;
+    }
+
+    if (activeDef.id === 'enxada_antiga') {
+      const canTill = chaoTile?.index === 5 && (!colTile || colTile.index <= 0) && !tile?.isTilled;
+      this.tileCursor.setTint(canTill ? 0x5bc26e : 0x94a3b8).setAlpha(canTill ? 0.9 : 0.4);
+      return;
+    }
+
+    if (activeDef.id === 'regador_simples') {
+      const canWater = Boolean(tile?.isTilled && !tile.isWatered);
+      this.tileCursor.setTint(canWater ? 0x38bdf8 : 0x94a3b8).setAlpha(canWater ? 0.92 : 0.4);
+      return;
+    }
+
+    if (activeDef.category === 'seed') {
+      const canPlant = Boolean(tile?.isTilled && !tile.cropId);
+      this.tileCursor.setTint(canPlant ? 0x5bc26e : 0xe05263).setAlpha(canPlant ? 0.92 : 0.45);
+      return;
+    }
+
+    if (activeDef.id === 'picareta_simples' || activeDef.id === 'machado_simples') {
+      const hasTarget = colTile?.index === 31 || colTile?.index === 13;
+      this.tileCursor.setTint(hasTarget ? 0xf5b942 : 0x94a3b8).setAlpha(hasTarget ? 0.95 : 0.35);
+      return;
+    }
+
+    if (activeDef.category === 'placeable') {
+      const free = (!colTile || colTile.index <= 0) && !tile?.placedItemId;
+      this.tileCursor.setTint(free ? 0x4deeea : 0xe05263).setAlpha(0.85);
+      return;
+    }
+
+    this.tileCursor.setTint(0xd6cfc2).setAlpha(0.45);
   }
 
   private resolveSpawnPosition(
@@ -717,25 +831,90 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
 
-    // 0.2 Interação com Unicórnios no cercado da fazenda (coleta Leite de Unicórnio)
+    // 0.2 Interação com Unicórnios no cercado da fazenda (carinho diário + Leite de Unicórnio)
     const unicornEntry = this.unicornSprites.find(
       (u) => Math.abs(u.tileX - tileX) <= 1 && Math.abs(u.tileY - tileY) <= 1
     );
     if (unicornEntry && this.mapId === 'fazenda') {
-      const res = this.animalSystem.collectUnicornMilk(
-        unicornEntry.unicornId,
-        this.animalSystem.getAbsoluteDay()
-      );
+      const absDay = this.animalSystem.getAbsoluteDay();
+      const petRes = this.animalSystem.petUnicorn(unicornEntry.unicornId, absDay);
+      const milkRes = this.animalSystem.collectUnicornMilk(unicornEntry.unicornId, absDay);
+      if (petRes.ok) {
+        const heart = this.add
+          .text(unicornEntry.sprite.x, unicornEntry.sprite.y - 16, '♥', {
+            fontSize: '12px',
+            color: '#f472b6',
+            stroke: '#1e1b2e',
+            strokeThickness: 3,
+          })
+          .setOrigin(0.5)
+          .setDepth(unicornEntry.sprite.y + 30);
+        this.tweens.add({
+          targets: heart,
+          y: heart.y - 18,
+          alpha: 0,
+          duration: 750,
+          onComplete: () => heart.destroy(),
+        });
+      }
       if (
-        res.ok &&
+        (milkRes.ok || petRes.ok) &&
         unicornEntry.sprite instanceof Phaser.GameObjects.Sprite &&
         this.anims.exists('unicorn_idle')
       ) {
         unicornEntry.sprite.play('unicorn_idle');
       }
-      EventBus.emit('AUDIO_PLAY_SFX', { kind: res.ok ? 'magic' : 'interact' });
-      EventBus.emit('SHOW_TOAST', { message: res.message, kind: res.ok ? 'success' : 'info' });
+      const message = milkRes.ok
+        ? petRes.ok
+          ? `${milkRes.message} (${petRes.affinity}/100 ♥)`
+          : milkRes.message
+        : petRes.ok
+          ? petRes.message
+          : milkRes.message;
+      EventBus.emit('AUDIO_PLAY_SFX', { kind: milkRes.ok || petRes.ok ? 'magic' : 'interact' });
+      EventBus.emit('SHOW_TOAST', {
+        message,
+        kind: milkRes.ok || petRes.ok ? 'success' : 'info',
+      });
       EventBus.emit('INVENTORY_UPDATED', { selectedIndex: state.selectedHotbarIndex });
+      return;
+    }
+
+    // 0.2b Interação com Mini-Dragões na Fazenda (carinho diário +6 Mana)
+    if (
+      this.mapId === 'fazenda' &&
+      state.miniDragonsCount > 0 &&
+      tileY >= 7 &&
+      tileY <= 9 &&
+      tileX >= 41 &&
+      tileX <= 41 + state.miniDragonsCount * 2
+    ) {
+      const dragRes = this.animalSystem.petMiniDragons(this.animalSystem.getAbsoluteDay());
+      if (dragRes.ok) {
+        const center = this.gridSystem.tileToWorldCenter(tileX, tileY);
+        const heart = this.add
+          .text(center.x, center.y - 16, '♥ +6 Mana', {
+            fontSize: '10px',
+            color: '#fb923c',
+            stroke: '#1e1b2e',
+            strokeThickness: 3,
+          })
+          .setOrigin(0.5)
+          .setDepth(center.y + 30);
+        this.tweens.add({
+          targets: heart,
+          y: heart.y - 18,
+          alpha: 0,
+          duration: 800,
+          onComplete: () => heart.destroy(),
+        });
+        EventBus.emit('VITALS_UPDATED', { vitals: state.vitals });
+      }
+      EventBus.emit('AUDIO_PLAY_SFX', { kind: dragRes.ok ? 'magic' : 'interact' });
+      EventBus.emit('SHOW_TOAST', {
+        message: dragRes.message,
+        kind: dragRes.ok ? 'success' : 'info',
+      });
       return;
     }
 
@@ -1005,9 +1184,17 @@ export class WorldScene extends Phaser.Scene {
     // 3. Colheita pronta no tile alvo
     if (tileState?.cropId && tileState.isReadyToHarvest) {
       const harvestedCropId = tileState.cropId;
+      const goldBefore = state.gold;
+      const manaBefore = state.vitals.mana;
       const res = this.farmingSystem.harvestTile(this.mapId, tileX, tileY, state.time.moonPhase);
       if (res.ok) {
         this.questSystem.recordCropHarvested(harvestedCropId);
+        if (state.gold !== goldBefore) {
+          EventBus.emit('GOLD_UPDATED', { gold: state.gold });
+        }
+        if (state.vitals.mana !== manaBefore) {
+          EventBus.emit('VITALS_UPDATED', { vitals: state.vitals });
+        }
       }
       EventBus.emit('AUDIO_PLAY_SFX', { kind: res.ok ? 'farm' : 'error' });
       EventBus.emit('SHOW_TOAST', { message: res.message, kind: res.ok ? 'success' : 'error' });
@@ -1779,6 +1966,9 @@ export class WorldScene extends Phaser.Scene {
 
     this.treeHpMap.delete(treeKey);
     this.colisoesLayer?.removeTileAt(tileX, tileY);
+    if (this.mapId === 'fazenda') {
+      state.flags[`cut_tree_${tileX}_${tileY}`] = true;
+    }
     if (treeSprite) {
       this.treeOverlaySprites.delete(treeKey);
       this.tweens.add({
@@ -1790,8 +1980,12 @@ export class WorldScene extends Phaser.Scene {
         onComplete: () => treeSprite.destroy(),
       });
     }
-    if (this.textures.exists('nature_extended_sheet')) {
-      const center = this.gridSystem.tileToWorldCenter(tileX, tileY);
+    const center = this.gridSystem.tileToWorldCenter(tileX, tileY);
+    if (this.textures.exists('sao_tome_trees_sheet')) {
+      this.add
+        .image(center.x, center.y - 26, 'sao_tome_trees_sheet', 4 + ((tileX + tileY) % 3))
+        .setDepth(center.y - 4);
+    } else if (this.textures.exists('nature_extended_sheet')) {
       this.add
         .image(center.x, center.y, 'nature_extended_sheet', NATURE_EXTENDED_FRAMES.TREE_STUMP)
         .setDepth(center.y - 4);
@@ -1965,17 +2159,49 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private enterDungeon(dungeonId: DungeonId): void {
-    const startRun = (unstableRift: boolean) => {
+    const startRun = (floor: number, unstableRift: boolean) => {
       if (this.isTransitioning) return;
       this.isTransitioning = true;
       EventBus.emit('AUDIO_PLAY_SFX', { kind: 'portal' });
       this.cameras.main.fadeOut(220, 20, 18, 29);
       this.cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-        this.scene.start('DungeonScene', { dungeonId, floor: 1, unstableRift });
+        this.scene.start('DungeonScene', { dungeonId, floor, unstableRift });
       });
     };
 
-    if (gameState.getState().flags.endgame_unlocked) {
+    const state = gameState.getState();
+    const checkpoints = getUnlockedDungeonCheckpoints(state.flags, dungeonId);
+    const isEndgame = Boolean(state.flags.endgame_unlocked);
+
+    const floorChoiceLabel = (cp: number): string => {
+      if (cp > TOTAL_PROCEDURAL_FLOORS) return `Andar ${cp} — Arena do Guardião`;
+      if (cp === 5) return 'Andar 5 — Santuário Intermediário';
+      if (cp === 10) return 'Andar 10 — Ante-Câmara';
+      return 'Andar 1 — Entrada da Fenda';
+    };
+
+    const buildFloorTurns = (unstableRift: boolean): DialogueTurn[] => [
+      {
+        speaker: 'Elevador Rúnico',
+        title: unstableRift ? 'Fenda Instável — Seleção de Andar' : 'Elevador Rúnico — Seleção de Andar',
+        portraitColor: '#7e8ce0',
+        mood: 'misterio',
+        text: 'Escolha o ponto de sintonização desbloqueado para iniciar sua descida:',
+        choices: [
+          ...checkpoints.map((cp) => ({
+            label: floorChoiceLabel(cp),
+            tag: cp === 1 ? 'Início' : 'Checkpoint',
+            onSelect: () => startRun(cp, unstableRift),
+          })),
+          {
+            label: 'Recuar por enquanto',
+            tag: 'Cancelar',
+          },
+        ],
+      },
+    ];
+
+    if (isEndgame) {
       EventBus.emit('OPEN_DIALOGUE', {
         turns: [
           {
@@ -1988,12 +2214,14 @@ export class WorldScene extends Phaser.Scene {
               {
                 label: 'Fenda Calma (Padrão)',
                 tag: 'Normal',
-                onSelect: () => startRun(false),
+                onSelect: checkpoints.length <= 1 ? () => startRun(1, false) : undefined,
+                nextTurns: checkpoints.length > 1 ? buildFloorTurns(false) : undefined,
               },
               {
                 label: 'Fenda Instável (+40% Vida/Dano, Loot & Ouro Bônus)',
                 tag: 'Desafio Endgame',
-                onSelect: () => startRun(true),
+                onSelect: checkpoints.length <= 1 ? () => startRun(1, true) : undefined,
+                nextTurns: checkpoints.length > 1 ? buildFloorTurns(true) : undefined,
               },
               {
                 label: 'Recuar por enquanto',
@@ -2006,7 +2234,12 @@ export class WorldScene extends Phaser.Scene {
       return;
     }
 
-    startRun(false);
+    if (checkpoints.length > 1) {
+      EventBus.emit('OPEN_DIALOGUE', { turns: buildFloorTurns(false) });
+      return;
+    }
+
+    startRun(1, false);
   }
 
   private evaluateAndNotifyQuests(): void {
@@ -2031,6 +2264,7 @@ export class WorldScene extends Phaser.Scene {
     const state = gameState.getState();
     const dayFinished = state.time.day;
     const seasonFinished = state.time.season;
+    const wasMeteorNight = this.timeSystem.isMeteorShowerNight();
 
     const { totalGold, itemsSold } = this.inventorySystem.settleShippingBin();
     const nextTime = this.timeSystem.advanceDay();
@@ -2039,6 +2273,25 @@ export class WorldScene extends Phaser.Scene {
       this.animalSystem.getAbsoluteDay()
     );
     this.craftingSystem.completeAllForgeJobs();
+
+    if (wasMeteorNight) {
+      this.inventorySystem.addItem('quartzo_refinado', 1);
+      EventBus.emit('SHOW_TOAST', {
+        message: 'Chuva de Meteoros deixou +1 Quartzo Refinado na Fazenda!',
+        kind: 'success',
+      });
+    }
+
+    if (nextTime.weather === 'Chuva' || nextTime.day % 7 === 0) {
+      let regrown = 0;
+      for (const flagKey of Object.keys(state.flags)) {
+        if (flagKey.startsWith('cut_tree_') && state.flags[flagKey]) {
+          delete state.flags[flagKey];
+          regrown++;
+          if (regrown >= 2) break;
+        }
+      }
+    }
 
     state.vitals.hp = state.vitals.maxHp;
     state.vitals.stamina = state.vitals.maxStamina;
@@ -2096,12 +2349,12 @@ export class WorldScene extends Phaser.Scene {
         created.push(
           this.add
             .image(center.x, center.y - 6, 'crops_sheet', cropRow * 4 + stageIdx)
-            .setDepth(center.y)
+            .setDepth(center.y + 12)
         );
       } else {
         const cropImg = this.add
           .image(center.x, center.y, `crop_stage_${stageIdx}`)
-          .setDepth(center.y);
+          .setDepth(center.y + 12);
         const cropDef = getCropDef(tile.cropId);
         if (cropDef && tile.isReadyToHarvest) {
           cropImg.setTint(Phaser.Display.Color.HexStringToColor(cropDef.colorHex).color);
@@ -2117,7 +2370,7 @@ export class WorldScene extends Phaser.Scene {
       ) {
         const inc = this.add
           .sprite(center.x, center.y - 6, 'workbenches_animated_sheet', 0)
-          .setDepth(center.y);
+          .setDepth(center.y + 16);
         if (this.anims.exists('incubadora_active_anim')) {
           inc.play('incubadora_active_anim');
         }
@@ -2128,7 +2381,7 @@ export class WorldScene extends Phaser.Scene {
       ) {
         const forge = this.add
           .sprite(center.x, center.y - 6, 'workbenches_animated_sheet', 4)
-          .setDepth(center.y);
+          .setDepth(center.y + 16);
         if (this.anims.exists('forja_active_anim')) {
           forge.play('forja_active_anim');
         }
@@ -2142,7 +2395,7 @@ export class WorldScene extends Phaser.Scene {
             ? CREATURES_FIRE_FRAMES.INCUBADORA
             : CREATURES_FIRE_FRAMES.FORJA;
         created.push(
-          this.add.image(center.x, center.y - 6, 'creatures_fire_sheet', frame).setDepth(center.y)
+          this.add.image(center.x, center.y - 6, 'creatures_fire_sheet', frame).setDepth(center.y + 16)
         );
       } else if (
         tile.placedItemId === 'bancada_encantamento' &&
@@ -2150,7 +2403,7 @@ export class WorldScene extends Phaser.Scene {
       ) {
         const altar = this.add
           .sprite(center.x, center.y - 6, 'workbenches_animated_sheet', 8)
-          .setDepth(center.y);
+          .setDepth(center.y + 16);
         if (this.anims.exists('bancada_encantamento_active')) {
           altar.play('bancada_encantamento_active');
         }
@@ -2161,7 +2414,7 @@ export class WorldScene extends Phaser.Scene {
       ) {
         const altar = this.add
           .sprite(center.x, center.y - 6, 'world_objects_sheet', 0)
-          .setDepth(center.y);
+          .setDepth(center.y + 16);
         if (this.anims.exists('bancada_encantamento_idle')) {
           altar.play('bancada_encantamento_idle');
         }
@@ -2172,7 +2425,7 @@ export class WorldScene extends Phaser.Scene {
       ) {
         const sprinkler = this.add
           .sprite(center.x, center.y - 2, 'props_living_v2_sheet', 0)
-          .setDepth(center.y);
+          .setDepth(center.y + 10);
         if (this.anims.exists('aspersor_spin_anim')) {
           sprinkler.play('aspersor_spin_anim');
         }
@@ -2181,12 +2434,12 @@ export class WorldScene extends Phaser.Scene {
         const sprinkler = this.add
           .circle(center.x, center.y, 7, 0x38bdf8, 0.9)
           .setStrokeStyle(2, 0xd4a373, 1)
-          .setDepth(center.y);
+          .setDepth(center.y + 10);
         created.push(sprinkler);
       } else {
         const texKey = `obj_${tile.placedItemId}`;
         if (this.textures.exists(texKey)) {
-          created.push(this.add.image(center.x, center.y, texKey).setDepth(center.y));
+          created.push(this.add.image(center.x, center.y, texKey).setDepth(center.y + 14));
         }
       }
 
@@ -2260,6 +2513,7 @@ export class WorldScene extends Phaser.Scene {
       for (let i = 0; i < state.miniDragonsCount; i++) {
         const px = (42 + i * 2) * TILE_SIZE + 16;
         const py = 8 * TILE_SIZE + 16;
+        this.add.ellipse(px, py + 14, 20, 8, 0x0b0914, 0.3).setDepth(py - 0.1);
         if (this.textures.exists('pets_extended_sheet')) {
           const dragon = this.add
             .sprite(px, py - 4, 'pets_extended_sheet', PETS_EXTENDED_FRAMES.DRAGON_WALK_START)
@@ -2288,6 +2542,7 @@ export class WorldScene extends Phaser.Scene {
         const tileY = 6;
         const ux = tileX * TILE_SIZE + 16;
         const uy = tileY * TILE_SIZE + 16;
+        this.add.ellipse(ux, uy + 14, 24, 9, 0x0b0914, 0.3).setDepth(uy - 0.1);
         let sprite: Phaser.GameObjects.Image | Phaser.GameObjects.Sprite;
         if (this.textures.exists('pets_extended_sheet')) {
           const uni = this.add
@@ -2351,11 +2606,11 @@ export class WorldScene extends Phaser.Scene {
       if (this.textures.exists('omena_world_props_sheet') && this.anims.exists('portal_omena_spin')) {
         const portal = this.add
           .sprite(px, py, 'omena_world_props_sheet', OMENA_PROPS_FRAMES.PORTAL_START)
-          .setDepth(500);
+          .setDepth(py + 16);
         portal.play('portal_omena_spin');
         this.omenaPortalSprite = portal;
       } else {
-        this.omenaPortalSprite = this.add.image(px, py, 'portal_omena').setDepth(500);
+        this.omenaPortalSprite = this.add.image(px, py, 'portal_omena').setDepth(py + 16);
         this.tweens.add({
           targets: this.omenaPortalSprite,
           angle: 360,
@@ -2416,18 +2671,43 @@ export class WorldScene extends Phaser.Scene {
 
           if (colTile?.index === 13) {
             const isBorder = x <= 0 || y <= 0 || x >= this.map.width - 1 || y >= this.map.height - 1;
-            if (!isBorder || (x + y) % 2 === 0) {
-              const treeFrames = [
-                NATURE_EXTENDED_FRAMES.TREE_OAK_A,
-                NATURE_EXTENDED_FRAMES.TREE_OAK_B,
-                NATURE_EXTENDED_FRAMES.TREE_OAK_C,
-                NATURE_EXTENDED_FRAMES.TREE_IPE_PURPLE,
-              ];
-              const frame = treeFrames[(x * 3 + y * 5) % treeFrames.length];
-              const treeImg = this.add
-                .image(center.x, center.y - 6, 'nature_extended_sheet', frame)
-                .setScale(1.12)
-                .setDepth(center.y + 6);
+            const isCutStump =
+              this.mapId === 'fazenda' && !isBorder && Boolean(state.flags[`cut_tree_${x}_${y}`]);
+            if (isCutStump) {
+              colTile.setVisible(false);
+              this.colisoesLayer?.removeTileAt(x, y);
+              if (this.textures.exists('sao_tome_trees_sheet')) {
+                this.add
+                  .image(center.x, center.y - 26, 'sao_tome_trees_sheet', 4 + ((x + y) % 3))
+                  .setDepth(center.y - 4);
+              } else if (this.textures.exists('nature_extended_sheet')) {
+                this.add
+                  .image(center.x, center.y, 'nature_extended_sheet', NATURE_EXTENDED_FRAMES.TREE_STUMP)
+                  .setDepth(center.y - 4);
+              }
+            } else if (!isBorder || (x + y) % 2 === 0) {
+              let treeImg: Phaser.GameObjects.Image;
+              if (this.textures.exists('sao_tome_trees_sheet')) {
+                colTile.setVisible(false);
+                const treeFrame =
+                  state.time.season === 'Outono' && (x + y) % 2 === 0
+                    ? 7
+                    : (x * 3 + y * 5) % 4;
+                treeImg = this.add
+                  .image(center.x, center.y - 26, 'sao_tome_trees_sheet', treeFrame)
+                  .setDepth(center.y + 14);
+              } else {
+                const treeFrames = [
+                  NATURE_EXTENDED_FRAMES.TREE_OAK_A,
+                  NATURE_EXTENDED_FRAMES.TREE_OAK_B,
+                  NATURE_EXTENDED_FRAMES.TREE_OAK_C,
+                  NATURE_EXTENDED_FRAMES.TREE_IPE_PURPLE,
+                ];
+                const frame = treeFrames[(x * 3 + y * 5) % treeFrames.length];
+                treeImg = this.add
+                  .image(center.x, center.y - 6, 'nature_extended_sheet', frame)
+                  .setDepth(center.y + 14);
+              }
               if (!isBorder) {
                 this.treeOverlaySprites.set(makeTileKey(this.mapId, x, y), treeImg);
               }
@@ -2436,8 +2716,7 @@ export class WorldScene extends Phaser.Scene {
             colTile.setVisible(false);
             const boulderImg = this.add
               .image(center.x, center.y, 'nature_extended_sheet', NATURE_EXTENDED_FRAMES.RUNE_BOULDER)
-              .setScale(1.06)
-              .setDepth(center.y + 2);
+              .setDepth(center.y + 14);
             this.boulderOverlaySprites.set(makeTileKey(this.mapId, x, y), boulderImg);
           }
         }
@@ -2452,6 +2731,7 @@ export class WorldScene extends Phaser.Scene {
 
     if (this.mapId === 'fazenda') {
       if (this.textures.exists('buildings_modular_sheet')) {
+        const farmhouseBaseDepth = 7 * TILE_SIZE + 28;
         for (let x = 24; x <= 31; x++) {
           const roofFrame =
             x === 24
@@ -2461,10 +2741,12 @@ export class WorldScene extends Phaser.Scene {
               : x === 29
               ? MODULAR_BUILDING_FRAMES.RED_ROOF_CHIMNEY
               : MODULAR_BUILDING_FRAMES.RED_ROOF_MID;
-          this.add.image(x * TILE_SIZE + 16, 4 * TILE_SIZE + 16, 'buildings_modular_sheet', roofFrame).setDepth(3);
+          this.add
+            .image(x * TILE_SIZE + 16, 4 * TILE_SIZE + 16, 'buildings_modular_sheet', roofFrame)
+            .setDepth(farmhouseBaseDepth + 2);
           this.add
             .image(x * TILE_SIZE + 16, 5 * TILE_SIZE + 16, 'buildings_modular_sheet', MODULAR_BUILDING_FRAMES.RED_ROOF_GABLE)
-            .setDepth(3);
+            .setDepth(farmhouseBaseDepth + 2);
 
           const wallFrame =
             x === 24
@@ -2474,13 +2756,15 @@ export class WorldScene extends Phaser.Scene {
               : x === 26 || x === 30
               ? MODULAR_BUILDING_FRAMES.WALL_IVY_FLOWER
               : MODULAR_BUILDING_FRAMES.WALL_MID;
-          this.add.image(x * TILE_SIZE + 16, 6 * TILE_SIZE + 16, 'buildings_modular_sheet', wallFrame).setDepth(3);
+          this.add
+            .image(x * TILE_SIZE + 16, 6 * TILE_SIZE + 16, 'buildings_modular_sheet', wallFrame)
+            .setDepth(farmhouseBaseDepth);
         }
 
         if (this.anims.exists('chimney_smoke_anim')) {
           const smoke = this.add
             .sprite(29 * TILE_SIZE + 16, 3 * TILE_SIZE + 16, 'buildings_modular_sheet', MODULAR_BUILDING_FRAMES.CHIMNEY_SMOKE_1)
-            .setDepth(4);
+            .setDepth(farmhouseBaseDepth + 3);
           smoke.play('chimney_smoke_anim');
         }
 
@@ -2492,7 +2776,7 @@ export class WorldScene extends Phaser.Scene {
               'buildings_modular_sheet',
               isNight ? MODULAR_BUILDING_FRAMES.WINDOW_LIT : MODULAR_BUILDING_FRAMES.WINDOW_DARK
             )
-            .setDepth(4);
+            .setDepth(farmhouseBaseDepth + 1);
           this.timeVisualSprites.push({
             sprite: win,
             dayFrame: MODULAR_BUILDING_FRAMES.WINDOW_DARK,
@@ -2505,15 +2789,15 @@ export class WorldScene extends Phaser.Scene {
           .setDepth(2);
         this.add
           .image(28 * TILE_SIZE + 16, 7 * TILE_SIZE + 16, 'buildings_modular_sheet', MODULAR_BUILDING_FRAMES.DOOR_SINGLE)
-          .setDepth(3);
+          .setDepth(farmhouseBaseDepth);
 
         if (this.anims.exists('wall_lantern_anim')) {
           for (const lx of [27, 29]) {
             const lantern = this.add
               .sprite(lx * TILE_SIZE + 16, 7 * TILE_SIZE + 12, 'buildings_modular_sheet', MODULAR_BUILDING_FRAMES.WALL_LANTERN_1)
-              .setScale(0.7)
-              .setDepth(5);
+              .setDepth(farmhouseBaseDepth + 1);
             lantern.play('wall_lantern_anim');
+            this.dayNightSystem.registerLight(lx * TILE_SIZE + 16, 7 * TILE_SIZE + 12, 38, 0xf5b942);
           }
         }
       }
@@ -2521,6 +2805,7 @@ export class WorldScene extends Phaser.Scene {
 
     if (this.mapId === 'cidade') {
       if (this.textures.exists('buildings_modular_sheet')) {
+        const shopBaseDepth = 5 * TILE_SIZE + 28;
         const shops = [
           { signX: 5, doorX: 6, chimneyX: 7, signFrame: MODULAR_BUILDING_FRAMES.SIGN_FORGE, roofDark: true },
           { signX: 13, doorX: 14, chimneyX: 15, signFrame: MODULAR_BUILDING_FRAMES.SIGN_BOTICA, roofDark: false },
@@ -2534,14 +2819,13 @@ export class WorldScene extends Phaser.Scene {
               'buildings_modular_sheet',
               s.roofDark ? MODULAR_BUILDING_FRAMES.DARK_ROOF : MODULAR_BUILDING_FRAMES.RED_ROOF_CHIMNEY
             )
-            .setDepth(3);
+            .setDepth(shopBaseDepth + 2);
           this.add
             .image(s.doorX * TILE_SIZE + 16, 5 * TILE_SIZE + 16, 'buildings_modular_sheet', MODULAR_BUILDING_FRAMES.DOOR_DOUBLE)
-            .setDepth(3);
+            .setDepth(shopBaseDepth);
           this.add
             .image(s.signX * TILE_SIZE + 16, 5 * TILE_SIZE + 10, 'buildings_modular_sheet', s.signFrame)
-            .setScale(0.85)
-            .setDepth(5);
+            .setDepth(shopBaseDepth + 1);
           const win = this.add
             .image(
               (s.doorX + 1) * TILE_SIZE + 16,
@@ -2549,7 +2833,7 @@ export class WorldScene extends Phaser.Scene {
               'buildings_modular_sheet',
               isNight ? MODULAR_BUILDING_FRAMES.WINDOW_LIT : MODULAR_BUILDING_FRAMES.WINDOW_DARK
             )
-            .setDepth(4);
+            .setDepth(shopBaseDepth + 1);
           this.timeVisualSprites.push({
             sprite: win,
             dayFrame: MODULAR_BUILDING_FRAMES.WINDOW_DARK,
@@ -2558,7 +2842,7 @@ export class WorldScene extends Phaser.Scene {
           if (this.anims.exists('chimney_smoke_anim')) {
             const smoke = this.add
               .sprite(s.chimneyX * TILE_SIZE + 16, 2 * TILE_SIZE + 16, 'buildings_modular_sheet', MODULAR_BUILDING_FRAMES.CHIMNEY_SMOKE_1)
-              .setDepth(4);
+              .setDepth(shopBaseDepth + 3);
             smoke.play('chimney_smoke_anim');
           }
         }
@@ -2587,6 +2871,7 @@ export class WorldScene extends Phaser.Scene {
             dayFrame: NATURE_EXTENDED_FRAMES.STREET_LAMP_OFF,
             nightFrame: NATURE_EXTENDED_FRAMES.STREET_LAMP_LIT,
           });
+          this.dayNightSystem.registerLight(lx * TILE_SIZE + 16, ly * TILE_SIZE + 2, 52, 0xf5b942);
         }
       }
     }

@@ -20,10 +20,20 @@ export function formatGameTime(minuteOfDay: number): string {
   return `${String(normalizedHour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
 
+export function isMeteorShowerNight(
+  time: Pick<GameTimeSnapshot, 'day' | 'moonPhase' | 'weather'>
+): boolean {
+  return time.moonPhase === 'Cheia' || (time.day % 7 === 0 && time.weather === 'Ensolarado');
+}
+
 export class TimeSystem {
   private accumulatorMs = 0;
 
   constructor(private timeState: GameTimeSnapshot) {}
+
+  isMeteorShowerNight(): boolean {
+    return isMeteorShowerNight(this.timeState);
+  }
 
   getSnapshot(): GameTimeSnapshot {
     return this.timeState;

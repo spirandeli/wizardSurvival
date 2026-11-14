@@ -361,17 +361,18 @@ export function getItemIconDataUrl(itemId: string): string {
 
 export function renderItemIconHtml(itemId: string, size = 32, extraClass = ''): string {
   const def = getItemDef(itemId);
+  const intSize = Math.max(16, Math.round(size));
   if (sheetAvailable && def) {
     const col = def.iconFrame % SHEET_COLS;
     const row = Math.floor(def.iconFrame / SHEET_COLS);
     const posX = SHEET_COLS > 1 ? (col / (SHEET_COLS - 1)) * 100 : 0;
     const posY = SHEET_ROWS > 1 ? (row / (SHEET_ROWS - 1)) * 100 : 0;
-    return `<span class="item-icon-sprite ${extraClass}" style="width:${size}px;height:${size}px;background-image:url('${SHEET_URL}');background-size:${SHEET_COLS * 100}% ${SHEET_ROWS * 100}%;background-position:${posX}% ${posY}%" aria-hidden="true"></span>`;
+    return `<span class="item-icon-sprite ${extraClass}" style="width:${intSize}px;height:${intSize}px;background-image:url('${SHEET_URL}');background-size:${SHEET_COLS * 100}% ${SHEET_ROWS * 100}%;background-position:${posX}% ${posY}%" aria-hidden="true"></span>`;
   }
 
   const src = getItemIconDataUrl(itemId);
   const label = def?.name ?? itemId;
-  return `<img class="item-icon-img ${extraClass}" src="${src}" alt="${label}" width="${size}" height="${size}" draggable="false" />`;
+  return `<img class="item-icon-img ${extraClass}" src="${src}" alt="${label}" width="${intSize}" height="${intSize}" style="image-rendering:pixelated" draggable="false" />`;
 }
 
 export function getCategoryLabelPt(category: string): string {

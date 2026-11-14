@@ -703,6 +703,10 @@ body,
   overflow-y: auto;
   background: linear-gradient(180deg, rgba(32, 27, 50, 0.98), rgba(18, 15, 30, 0.98));
   border: 2px solid var(--brass-border);
+  box-shadow:
+    inset 0 0 0 2px rgba(245, 185, 66, 0.16),
+    inset 0 0 0 4px rgba(10, 8, 18, 0.65),
+    0 18px 46px rgba(0, 0, 0, 0.72);
   border-radius: 14px;
   padding: 18px;
   box-shadow: 0 22px 60px rgba(0, 0, 0, 0.72), inset 0 1px 0 rgba(255, 255, 255, 0.1);
@@ -801,11 +805,95 @@ body,
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  overflow: hidden;
 }
 
-.paperdoll-svg {
-  height: 108px;
-  width: auto;
+.paperdoll-pixel-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.paperdoll-aura-disc {
+  position: absolute;
+  bottom: 14px;
+  width: 68px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--armor-aura, rgba(77, 238, 234, 0.18));
+  border: 1px solid var(--armor-accent, #64748b);
+  box-shadow: 0 0 12px var(--armor-aura, rgba(77, 238, 234, 0.2));
+}
+
+.paperdoll-player-sprite {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  background-image: url('/assets/sprites/player.png');
+  background-size: 400% 600%;
+  background-position: 0% 0%;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  z-index: 1;
+}
+
+.paperdoll-armor-overlay {
+  position: absolute;
+  width: 96px;
+  height: 96px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background-image: url('/assets/sprites/player_equipment_overlays.png');
+  background-size: 400% 600%;
+  background-repeat: no-repeat;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.paperdoll-portrait-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: 1px solid rgba(245, 185, 66, 0.45);
+  background: rgba(14, 12, 24, 0.85);
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  z-index: 2;
+}
+
+.paperdoll-gear-badge {
+  position: absolute;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  background: rgba(14, 12, 24, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.paperdoll-gear-badge.weapon {
+  top: 10px;
+  border-color: var(--weapon-accent, rgba(77, 238, 234, 0.5));
+}
+
+.paperdoll-gear-badge.armor {
+  bottom: 10px;
+  border-color: var(--armor-accent, rgba(245, 185, 66, 0.5));
 }
 
 .gear-slots-col {
@@ -1314,7 +1402,10 @@ body,
   border: 2px solid var(--panel-border);
   border-radius: 12px;
   padding: 16px;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65);
+  box-shadow:
+    inset 0 0 0 2px rgba(245, 185, 66, 0.15),
+    inset 0 0 0 4px rgba(10, 8, 18, 0.65),
+    0 12px 36px rgba(0, 0, 0, 0.65);
 }
 
 .dialogue-portrait {
@@ -2552,11 +2643,141 @@ body,
   justify-content: space-between;
   align-items: center;
   gap: 8px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: rgba(16, 13, 27, 0.84);
+  border: 1px solid rgba(200, 150, 62, 0.3);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.compendium-chip.mastered {
+  border-color: rgba(245, 185, 66, 0.72);
+  background: linear-gradient(135deg, rgba(42, 32, 18, 0.55), rgba(16, 13, 27, 0.88));
 }
 
 .compendium-chip.locked {
   opacity: 0.45;
   border-style: dashed;
+}
+
+.compendium-chip-left {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.compendium-chip-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.compendium-chip-text span {
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.compendium-chip-text small {
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.compendium-enemy-bust,
+.compendium-bust {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  border: 1px solid rgba(200, 150, 62, 0.45);
+  background: rgba(12, 10, 20, 0.9);
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  flex-shrink: 0;
+}
+
+.compendium-enemy-fallback {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  border: 1px dashed rgba(148, 163, 184, 0.35);
+  background: rgba(12, 10, 20, 0.65);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.compendium-companions-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.compendium-companion-card {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: rgba(16, 13, 27, 0.84);
+  border: 1px solid rgba(77, 238, 234, 0.32);
+}
+
+.compendium-companion-card.locked {
+  opacity: 0.48;
+  border-style: dashed;
+}
+
+.compendium-companion-card strong {
+  display: block;
+  font-size: 12.5px;
+}
+
+.compendium-companion-card small {
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.tp-checkpoint-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 5px 8px;
+  margin-top: 4px;
+  border-radius: 7px;
+  background: rgba(14, 12, 24, 0.72);
+  border: 1px solid rgba(126, 140, 224, 0.22);
+  font-size: 12px;
+}
+
+.tp-checkpoint-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.hud-buffs-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.hud-buff-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fef08a;
+  background: rgba(20, 18, 29, 0.92);
+  border: 1px solid rgba(245, 185, 66, 0.55);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 }
 
 /* Dock Badge & HUD Pin */

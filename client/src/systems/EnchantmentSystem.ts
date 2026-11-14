@@ -17,6 +17,12 @@ export const ELEMENT_LABELS: Record<ElementType, string> = {
   arcano: 'Arcano',
 };
 
+export const CROP_ELEMENT_CATALYST: Record<string, ElementType> = {
+  raiz_de_quartzo: 'terra',
+  lupulo_estelar: 'ar',
+  flor_de_sombra: 'arcano',
+};
+
 export const WEAPON_ENCHANT_STEP = 6;
 export const WEAPON_ENCHANT_MAX = 24;
 export const ARMOR_RES_STEP = 0.12;
@@ -44,7 +50,8 @@ export class EnchantmentSystem {
 
   rerollUnicorn(
     unicornId: string,
-    rng: () => number = Math.random
+    rng: () => number = Math.random,
+    catalystCropId?: string
   ): { ok: boolean; message: string; rolledEnchants?: ElementType[] } {
     const unicorn = this.getUnicorn(unicornId);
     if (!unicorn) {
@@ -57,8 +64,21 @@ export class EnchantmentSystem {
       };
     }
 
+    const catalystElement = catalystCropId ? CROP_ELEMENT_CATALYST[catalystCropId] : undefined;
+    if (catalystCropId && catalystElement && !this.inventory.hasItem(catalystCropId, 1)) {
+      return {
+        ok: false,
+        message: 'Você não possui a safra catalisadora selecionada na mochila.',
+      };
+    }
+
     this.inventory.removeItem('quartzo_refinado', 1);
-    unicorn.rolledEnchants = rollUnicornEnchants(rng);
+    const rolled = rollUnicornEnchants(rng);
+    if (catalystCropId && catalystElement) {
+      this.inventory.removeItem(catalystCropId, 1);
+      rolled[0] = catalystElement;
+    }
+    unicorn.rolledEnchants = rolled;
     return {
       ok: true,
       message: `${unicorn.name} sintonizou novos encantos: ${unicorn.rolledEnchants

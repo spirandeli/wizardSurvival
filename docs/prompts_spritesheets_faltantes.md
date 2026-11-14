@@ -644,9 +644,82 @@ Crisp 16-bit SNES RPG pixel art, clean edges, no anti-aliasing.
 
 ---
 
-## 14. Próximo Passo Após Gerar as Imagens
+## 14. Lotes v3 — Novos Sprites Prioritários (Auditoria Visual, Equipamentos & UI)
+
+Os sprites abaixo foram identificados na auditoria técnica e visual como essenciais para eliminar fallbacks geométricos/emojis, corrigir proporções no mapa (árvores e construções) e refletir visualmente os equipamentos de Tomé:
+
+### 14A. Overlays de Armaduras e Cajados do Jogador (`public/assets/sprites/player_equipment_overlays.png`)
+- **Padrão:** `48×48` por quadro, grade **`4×6`** (`192×288` px finais), alinhado pixel-a-pixel com `player.png` (transparente onde não há equipamento).
+- **Uso:** Camada sobreposta ao sprite de Tomé no mundo e no preview pixel art do Inventário (`InventoryModal.ts`).
+- **Mapeamento de Linhas:**
+  - Row 0 (`0..3`): `tunica_neblina` — idle/walk nas 4 direções (Down, Up, Left, Right).
+  - Row 1 (`4..7`): `armadura_granito_runico` — peitoral de pedra rúnica com ombros dourados (Down, Up, Left, Right).
+  - Row 2 (`8..11`): `manto_escama_dragao` — capa/manto carmesim com borda dourada (Down, Up, Left, Right).
+  - Row 3 (`12..15`): Cajados equipados na mão/costas (`cajado_aprendiz`, `cajado_quartzo_terra`, `cajado_arcano_estelar`, `cetro_nucleo_mundo`).
+  - Row 4–5 (`16..23`): Quadros extras de caminhada lateral/frontal para os mantos.
+- **Prompt (EN):**
+  ```text
+  2D top-down 3/4 cozy RPG pixel art equipment overlay sprite sheet on a strict 4 columns by 6 rows orthogonal grid (48x48 cells, completely transparent background around each armor/cloak piece, aligned to a 48x48 Stardew Valley style character torso/shoulders, zero overlap, no body/face drawn, no text):
+  Row 1 (4 frames): Mist Tunic (sage green #4a6b53 with indigo trim #7e8ce0) facing Down, Up, Left, Right.
+  Row 2 (4 frames): Runic Granite Armor (stone grey #78716c with amber rune shoulder pads #f59e0b) facing Down, Up, Left, Right.
+  Row 3 (4 frames): Dragonscale Mantle (crimson #991b1b with gold trim #f5b942) facing Down, Up, Left, Right.
+  Row 4 (4 frames): 4 magical staffs held at side (Apprentice Cyan Staff, Earth Quartz Staff, Starlight Arcane Staff, World Core Scepter).
+  Row 5-6 (8 frames): subtle cape/cloak flutter frames for walking Down and Right for Mist Tunic and Dragonscale Mantle.
+  Crisp 16-bit SNES pixel art, dark indigo outlines, no anti-aliasing.
+  ```
+
+### 14B. Ícones Estendidos de HUD & Abas (`public/assets/ui/ui_icons_ext.png`)
+- **Padrão:** `32×32` por quadro, grade **`4×4`** (`128×128` px finais).
+- **Uso:** Substituir emojis (`♥`, `✦`, `📖`, `📌`, `🥚`) e SVGs de fallback em `InventoryModal.ts`, `HUD.ts`, `UiIcons.ts` e `main.ts`.
+- **Mapeamento de Frames (`0..15`):**
+  - `[0]` Moradores (coração quente / vila) • `[1]` Grimório (tomo arcano ciano) • `[2]` Compêndio (livro aberto dourado) • `[3]` Pino/Fixar Missão
+  - `[4]` Som Ligado • `[5]` Som Mudo • `[6]` Salvar (cristal/disquete rúnico) • `[7]` Lixeira/Reciclar
+  - `[8]` Mini-Dragão (ícone) • `[9]` Unicórnio (ícone) • `[10]` Ovo Mágico • `[11]` Estrela Endgame
+  - `[12]` Elemento Terra • `[13]` Elemento Água • `[14]` Elemento Ar • `[15]` Elemento Arcano
+- **Prompt (EN):**
+  ```text
+  2D cozy fantasy RPG pixel art UI icons sprite sheet on a strict 4 columns by 4 rows orthogonal grid (32x32 cells, solid dark/transparent background, generous padding, zero overlap, no text):
+  Row 1: [0] warm crimson heart villager friendship icon, [1] glowing cyan-purple arcane grimoire spellbook, [2] open golden-bound compendium encyclopedia book, [3] golden map/quest pin marker.
+  Row 2: [4] speaker sound-on icon with cyan waves, [5] muted speaker with red X, [6] mystical save rune crystal/scroll icon, [7] wooden recycle/trash bin icon.
+  Row 3: [8] cute red mini-dragon head badge, [9] cute pearl-white unicorn head badge, [10] speckled mystical dragon egg icon, [11] radiant golden guardian star emblem.
+  Row 4: [12] Earth element amber quartz diamond, [13] Water element cyan droplet gem, [14] Air element indigo wind swirl, [15] Arcane element violet star orb.
+  Crisp 16-bit SNES pixel art, clean dark outlines, no anti-aliasing.
+  ```
+
+### 14C. Árvores Multi-Tile em Escala Real (`public/assets/sprites/sao_tome_trees.png`)
+- **Padrão:** `64×96` por quadro, grade **`4×2`** (`256×192` px finais).
+- **Uso:** Substituir as árvores de `32×32` em `nature_extended_sheet` que hoje sofrem `setScale(1.12)` em `WorldScene.ts`, garantindo copa alta com *Y-sorting* real atrás/frente do personagem.
+- **Mapeamento de Frames (`0..7`):**
+  - Row 0 (`0..3`): Carvalho Serrana A, Carvalho Serrana B, Ipê Roxo de São Tomé, Árvore Cristalina de Quartzo.
+  - Row 1 (`4..7`): Troncos cortados / tocos correspondentes + variação de outono/névoa.
+- **Prompt (EN):**
+  ```text
+  2D top-down 3/4 cozy RPG pixel art trees sprite sheet on a strict 4 columns by 2 rows orthogonal grid (64x96 tall cells, solid uniform background, zero overlap, no text):
+  Row 1 (4 full tall trees with lush rounded canopies and sturdy trunks anchored at bottom center): [0] highland oak tree A (lush green #4a6b53), [1] highland oak tree B (deeper mossy green), [2] Brazilian purple Ipe tree with vibrant lavender-magenta blossoms, [3] mystical Sao Tome quartz-blossom tree with glowing cyan crystal buds.
+  Row 2 (4 frames): [4-6] corresponding cut tree stumps with mossy roots, [7] misty autumn golden-amber tree.
+  Stardew Valley aesthetic, rich leaf clusters, warm dark brown/indigo outlines, no anti-aliasing.
+  ```
+
+### 14D. Molduras 9-Slice da Interface (`public/assets/ui/ui_frames_9slice.png`)
+- **Padrão:** `48×48` por quadro, grade **`3×1`** (`144×48` px finais).
+- **Uso:** `border-image` em CSS para painéis de HUD, modais de Mochila/Loja e caixa de diálogo.
+- **Prompt (EN):**
+  ```text
+  2D cozy fantasy RPG pixel art 9-slice UI panel frames on a strict 3 columns by 1 row grid (48x48 square panel frames, solid transparent/dark background, zero overlap, no text):
+  [0] Dark indigo & burnished gold arcane border frame (#14121d center, #f5b942 corner rivets), [1] Warm carved oak & parchment cozy frame (#2c1810 wood, #d6cfc2 inner trim), [2] Sao Tome quartz stone & cyan crystal rune frame (#9c9588 stone, #4deeea corner gems).
+  Crisp 16-bit SNES pixel art, symmetrical corners, no anti-aliasing.
+  ```
+
+### 14E. Variações de Retratos & Bustos do Compêndio (`public/assets/portraits/portraits_expressions_v3.png`)
+- **Padrão:** `64×64` por quadro, grade **`4×4`** (`256×256` px finais), recortar para `public/assets/portraits/`.
+- **Uso:** Expressões de diálogo para Tomé e moradores + mini-bustos de criaturas/chefes no Compêndio (`QuestLogModal.ts`).
+- **Mapeamento:** Tomé (alegre / determinado), Bento (sorrindo), Ísis (mística), Lyra (alegre), Seu Zeca (rindo), Prefeito Arlindo (preocupado), Seu Damião (bravo/firme), + bustos de Golem de Pedra, Serpente de Cristal, Sonda Ufológica, Sentinela de Omena, Mini-Dragão, Unicórnio, Remo e Lupin.
+
+---
+
+## 15. Próximo Passo Após Gerar as Imagens
 
 Assim que você gerar qualquer um desses lotes e salvar as imagens originais em `assets_raw/` (ex.: `assets_raw/sprites/`, `assets_raw/portraits/`, `assets_raw/tilesets/`):
 1. Faremos o recorte/padronização com `scripts/processSprites.py` mantendo os backups intactos em `assets_raw/`.
-2. Atualizaremos `BootScene.ts`, `Enemy.ts`, `WorldScene.ts`, `DungeonScene.ts`, `items.ts` (índices `32..39`) e os componentes HTML (`DialogueBox.ts`, `HotbarUI.ts`, `InventoryModal.ts`, `ShopModal.ts`).
+2. Atualizaremos `BootScene.ts`, `Enemy.ts`, `WorldScene.ts`, `DungeonScene.ts`, `items.ts` e os componentes HTML (`DialogueBox.ts`, `HotbarUI.ts`, `InventoryModal.ts`, `ShopModal.ts`).
 

@@ -83,8 +83,24 @@ export class InventoryModal {
     parent.appendChild(this.tooltipEl);
 
     this.onKeyDownBound = (ev: KeyboardEvent) => {
-      if (this.isOpen && ev.key === 'Escape') {
+      if (!this.isOpen) return;
+      if (ev.key === 'Escape') {
         this.close();
+        return;
+      }
+      if (
+        (ev.key === 'r' || ev.key === 'R') &&
+        this.activeTab === 'mochila' &&
+        document.activeElement?.tagName !== 'INPUT'
+      ) {
+        const invSys = new InventorySystem(gameState.getState());
+        const { moved } = invSys.sortBackpack();
+        EventBus.emit('AUDIO_PLAY_SFX', { kind: 'interact' });
+        EventBus.emit('SHOW_TOAST', {
+          message: moved > 0 ? 'Mochila organizada!' : 'Mochila já está organizada.',
+          kind: 'success',
+        });
+        EventBus.emit('INVENTORY_UPDATED', { selectedIndex: gameState.getState().selectedHotbarIndex });
       }
     };
     window.addEventListener('keydown', this.onKeyDownBound);
@@ -340,7 +356,7 @@ export class InventoryModal {
             <div class="companion-mini-row">
               <span title="Mini-Dragões">${UI_SVG.dragon} ${state.miniDragonsCount}</span>
               <span title="Unicórnios">${UI_SVG.unicorn} ${state.unicorns.length}</span>
-              <span title="Ovos Incubando">🥚 ${state.incubatingEggs.length}</span>
+              <span title="Ovos Incubando">${UI_SVG.egg} ${state.incubatingEggs.length}</span>
             </div>
           </div>
         </aside>
@@ -578,13 +594,13 @@ export class InventoryModal {
               ${UI_SVG.quest} Missões
             </button>
             <button type="button" class="modal-tab ${this.activeTab === 'moradores' ? 'active' : ''}" data-tab="moradores">
-              ♥ Moradores
+              ${UI_SVG.villagers} Moradores
             </button>
             <button type="button" class="modal-tab ${this.activeTab === 'grimorio' ? 'active' : ''}" data-tab="grimorio">
-              ✦ Grimório
+              ${UI_SVG.grimoire} Grimório
             </button>
             <button type="button" class="modal-tab ${this.activeTab === 'compendio' ? 'active' : ''}" data-tab="compendio">
-              📖 Compêndio
+              ${UI_SVG.compendium} Compêndio
             </button>
           </div>
           <div class="hub-header-meta">

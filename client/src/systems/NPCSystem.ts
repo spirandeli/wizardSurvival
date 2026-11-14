@@ -26,6 +26,17 @@ export interface NpcTalkResult {
   };
 }
 
+export function getVillagerShopDiscount(state: GameStateSnapshot, npcId?: string): number {
+  if (!npcId) return 0;
+  const affinity = state.npcAffinity[npcId] ?? 0;
+  const hasPerk50 = Boolean(state.flags[`npc_perk_${npcId}_50`]);
+  if (affinity >= 90) return 0.2;
+  if (hasPerk50 || affinity >= 50) return 0.15;
+  if (affinity >= 45) return 0.1;
+  if (affinity >= 30) return 0.05;
+  return 0;
+}
+
 export class NPCSystem {
   constructor(
     private state: GameStateSnapshot,
@@ -58,7 +69,7 @@ export class NPCSystem {
   }
 
   getShopDiscountMultiplier(npcId: string): number {
-    return this.hasPerk(npcId) ? 0.85 : 1;
+    return Number((1 - getVillagerShopDiscount(this.state, npcId)).toFixed(2));
   }
 
   getCurrentAct(): 'act1' | 'act2' | 'act3' | 'endgame' {

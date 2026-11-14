@@ -2,11 +2,43 @@ import type { GameStateSnapshot, MoonPhase, Season, WeatherType } from '@shared/
 import { getCropDef } from '../data/crops';
 import { getItemDef } from '../data/items';
 import { GridSystem } from './GridSystem';
-import { InventorySystem } from './InventorySystem';
+import { hasActiveBuff, InventorySystem } from './InventorySystem';
+
+export type CropQuality = 'normal' | 'prata' | 'ouro' | 'quartzo_estelar';
+
+export interface HarvestQualityRoll {
+  quality: CropQuality;
+  goldBonus: number;
+  manaBonus: number;
+}
+
+export function rollHarvestQuality(
+  state: GameStateSnapshot,
+  rng: () => number = Math.random
+): HarvestQualityRoll {
+  let boost = 0;
+  if (state.time.moonPhase === 'Cheia') boost += 0.14;
+  if (state.flags.earth_guardian_blessed) boost += 0.08;
+  if (state.flags.water_guardian_blessed) boost += 0.06;
+
+  const roll = rng();
+  if (roll < 0.06 + boost * 0.45) {
+    return { quality: 'quartzo_estelar', goldBonus: 45, manaBonus: 8 };
+  }
+  if (roll < 0.18 + boost * 0.7) {
+    return { quality: 'ouro', goldBonus: 25, manaBonus: 0 };
+  }
+  if (roll < 0.36 + boost) {
+    return { quality: 'prata', goldBonus: 10, manaBonus: 0 };
+  }
+  return { quality: 'normal', goldBonus: 0, manaBonus: 0 };
+}
 
 export interface FarmActionResult {
   ok: boolean;
   message: string;
+  quality?: CropQuality;
+  goldBonus?: number;
 }
 
 export class FarmingSystem {
@@ -27,11 +59,12 @@ export class FarmingSystem {
     if (existing?.isTilled) {
       return { ok: false, message: 'Esta terra já está arada.' };
     }
-    if (this.state.vitals.stamina < 2) {
+    const tillCost = hasActiveBuff(this.state, 'folego') ? 1 : 2;
+    if (this.state.vitals.stamina < tillCost) {
       return { ok: false, message: 'Stamina insuficiente!' };
     }
 
-    this.state.vitals.stamina -= 2;
+    this.state.vitals.stamina -= tillCost;
     const tile = this.grid.getOrCreateTile(mapId, tileX, tileY);
     tile.isTilled = true;
     if (this.state.time.weather === 'Chuva') {
@@ -105,7 +138,13 @@ export class FarmingSystem {
     return { ok: true, message: `${cropDef.name} plantada!` };
   }
 
-  harvestTile(mapId: string, tileX: number, tileY: number, moonPhase: MoonPhase): FarmActionResult {
+  harvestTile(
+    mapId: string,
+    tileX: number,
+    tileY: number,
+    moonPhase: MoonPhase,
+    rng: () => number = Math.random
+  ): FarmActionResult {
     const tile = this.grid.getTile(mapId, tileX, tileY);
     if (!tile || !tile.cropId || !tile.isReadyToHarvest) {
       return { ok: false, message: 'Ainda não está pronto para colheita.' };
@@ -128,12 +167,38 @@ export class FarmingSystem {
       return { ok: false, message: 'Mochila cheia!' };
     }
 
+    const qualityRoll = rollHarvestQuality(this.state, rng);
+    if (qualityRoll.goldBonus > 0) {
+      this.state.gold += qualityRoll.goldBonus;
+    }
+    if (qualityRoll.manaBonus > 0) {
+      this.state.vitals.mana = Math.min(
+        this.state.vitals.maxMana,
+        this.state.vitals.mana + qualityRoll.manaBonus
+      );
+    }
+
     tile.cropId = null;
     tile.daysGrown = 0;
     tile.currentStage = 0;
     tile.isReadyToHarvest = false;
     this.syncTilesToState();
-    return { ok: true, message: `Colheu 1x ${cropDef.name}!` };
+
+    const suffix =
+      qualityRoll.quality === 'quartzo_estelar'
+        ? ` ✨ Quartzo Estelar (+${qualityRoll.goldBonus} G, +${qualityRoll.manaBonus} Mana)!`
+        : qualityRoll.quality === 'ouro'
+        ? ` ★ Ouro (+${qualityRoll.goldBonus} G)!`
+        : qualityRoll.quality === 'prata'
+        ? ` ☆ Prata (+${qualityRoll.goldBonus} G)!`
+        : '!';
+
+    return {
+      ok: true,
+      message: `Colheu 1x ${cropDef.name}${suffix}`,
+      quality: qualityRoll.quality,
+      goldBonus: qualityRoll.goldBonus,
+    };
   }
 
   placeObject(mapId: string, tileX: number, tileY: number, itemId: string, canPlace: boolean): FarmActionResult {

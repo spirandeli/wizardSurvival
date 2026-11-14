@@ -1,9 +1,14 @@
 import { getItemDef } from '../data/items';
+import { renderItemIconHtml } from './ItemIcon';
 
 const UI_SHEET_URL = '/assets/ui/ui_icons.png';
+const UI_EXT_SHEET_URL = '/assets/ui/ui_icons_ext.png';
+const UI_V4_ICONS_URL = '/assets/ui/v4_quality_buff_icons.png';
 const UI_SHEET_COLS = 4;
 const UI_SHEET_ROWS = 4;
 let uiSheetAvailable = false;
+let uiExtSheetAvailable = false;
+let uiV4SheetAvailable = false;
 let uiSheetChecked = false;
 
 export function probeUiIconSheet(onLoaded?: () => void): void {
@@ -20,14 +25,71 @@ export function probeUiIconSheet(onLoaded?: () => void): void {
     uiSheetAvailable = false;
   };
   img.src = UI_SHEET_URL;
+
+  const extImg = new Image();
+  extImg.onload = () => {
+    if (extImg.naturalWidth >= 128 && extImg.naturalHeight >= 128) {
+      uiExtSheetAvailable = true;
+      onLoaded?.();
+    }
+  };
+  extImg.onerror = () => {
+    uiExtSheetAvailable = false;
+  };
+  extImg.src = UI_EXT_SHEET_URL;
+
+  const v4Img = new Image();
+  v4Img.onload = () => {
+    if (v4Img.naturalWidth >= 128 && v4Img.naturalHeight >= 64) {
+      uiV4SheetAvailable = true;
+      onLoaded?.();
+    }
+  };
+  v4Img.onerror = () => {
+    uiV4SheetAvailable = false;
+  };
+  v4Img.src = UI_V4_ICONS_URL;
+}
+
+function renderSheetIcon(
+  url: string,
+  frame: number,
+  size = 16,
+  cols = UI_SHEET_COLS,
+  rows = UI_SHEET_ROWS
+): string {
+  const col = frame % cols;
+  const row = Math.floor(frame / cols);
+  const posX = cols > 1 ? (col / (cols - 1)) * 100 : 0;
+  const posY = rows > 1 ? (row / (rows - 1)) * 100 : 0;
+  return `<span class="ui-icon-sprite" style="width:${size}px;height:${size}px;background-image:url('${url}');background-size:${cols * 100}% ${rows * 100}%;background-position:${posX}% ${posY}%" aria-hidden="true"></span>`;
 }
 
 function renderUiSheetIcon(frame: number, size = 16): string {
-  const col = frame % UI_SHEET_COLS;
-  const row = Math.floor(frame / UI_SHEET_COLS);
-  const posX = UI_SHEET_COLS > 1 ? (col / (UI_SHEET_COLS - 1)) * 100 : 0;
-  const posY = UI_SHEET_ROWS > 1 ? (row / (UI_SHEET_ROWS - 1)) * 100 : 0;
-  return `<span class="ui-icon-sprite" style="width:${size}px;height:${size}px;background-image:url('${UI_SHEET_URL}');background-size:${UI_SHEET_COLS * 100}% ${UI_SHEET_ROWS * 100}%;background-position:${posX}% ${posY}%" aria-hidden="true"></span>`;
+  return renderSheetIcon(UI_SHEET_URL, frame, size);
+}
+
+function renderUiExtSheetIcon(frame: number, size = 16): string {
+  return renderSheetIcon(UI_EXT_SHEET_URL, frame, size);
+}
+
+export function getBuffIconHtml(buffId: 'brisa' | 'folego' | 'harmonia', size = 16): string {
+  if (uiV4SheetAvailable) {
+    const frameMap: Record<'brisa' | 'folego' | 'harmonia', number> = {
+      brisa: 4,
+      folego: 5,
+      harmonia: 6,
+    };
+    return renderSheetIcon(UI_V4_ICONS_URL, frameMap[buffId], size, 4, 2);
+  }
+  return buffId === 'brisa' ? '⚡' : buffId === 'folego' ? '⛏️' : '✨';
+}
+
+export function getMeteorIconHtml(size = 16): string {
+  if (uiV4SheetAvailable) {
+    return renderSheetIcon(UI_V4_ICONS_URL, 3, size, 4, 2);
+  }
+  return '☄️';
 }
 
 export function getMoonSvg(phase: string): string {
@@ -90,6 +152,13 @@ const UI_SVG_FALLBACKS = {
   soundOn: `<svg viewBox="0 0 16 16" class="ui-svg-icon"><path d="M2.5 6.2h2.8L9 3.3v9.4L5.3 9.8H2.5z" fill="#d6cfc2"/><path d="M11 5.5a4 4 0 0 1 0 5M12.8 4a6.2 6.2 0 0 1 0 8" fill="none" stroke="#4deeea" stroke-width="1.3" stroke-linecap="round"/></svg>`,
   soundOff: `<svg viewBox="0 0 16 16" class="ui-svg-icon"><path d="M2.5 6.2h2.8L9 3.3v9.4L5.3 9.8H2.5z" fill="#94a3b8"/><path d="M11 6l3 4M14 6l-3 4" stroke="#e05263" stroke-width="1.5" stroke-linecap="round"/></svg>`,
   save: `<svg viewBox="0 0 16 16" class="ui-svg-icon"><path d="M3 2.5h8.5L13.5 4.5V13.5H3z" fill="#7e8ce0" stroke="#1e1b4b" stroke-width="1.1"/><rect x="5" y="2.5" width="5" height="4" fill="#f8fafc"/><rect x="5" y="9" width="6" height="4.5" fill="#1e1b4b"/></svg>`,
+  villagers: `<svg viewBox="0 0 16 16" class="ui-svg-icon"><path d="M8 14s-5.5-3.4-5.5-7.4A3.2 3.2 0 0 1 8 4.4a3.2 3.2 0 0 1 5.5 2.2C13.5 10.6 8 14 8 14z" fill="#e05263" stroke="#881337" stroke-width="1"/></svg>`,
+  grimoire: `<svg viewBox="0 0 16 16" class="ui-svg-icon"><rect x="3" y="2" width="10" height="12" rx="1.5" fill="#312e81" stroke="#4deeea" stroke-width="1.1"/><path d="M8 5l1 2.2L11.2 8 9 8.8 8 11l-1-2.2L4.8 8 7 7.2z" fill="#4deeea"/></svg>`,
+  compendium: `<svg viewBox="0 0 16 16" class="ui-svg-icon"><path d="M2 3.5h5.5v9.5H2zM8.5 3.5H14v9.5H8.5z" fill="#d6cfc2" stroke="#92400e" stroke-width="1.1"/></svg>`,
+  pin: `<svg viewBox="0 0 16 16" class="ui-svg-icon"><circle cx="8" cy="5.5" r="3" fill="#f5b942" stroke="#92400e" stroke-width="1"/><path d="M8 8.5v5.5" stroke="#d6cfc2" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+  trash: `<svg viewBox="0 0 16 16" class="ui-svg-icon"><path d="M4 4h8l-.8 9.5H4.8z" fill="#9c663b" stroke="#2c1810" stroke-width="1.1"/><path d="M3 4h10M6.5 2.5h3" stroke="#d6cfc2" stroke-width="1.2"/></svg>`,
+  egg: `<svg viewBox="0 0 16 16" class="ui-svg-icon"><ellipse cx="8" cy="8.5" rx="4.5" ry="5.8" fill="#fef08a" stroke="#92400e" stroke-width="1.1"/><circle cx="6.8" cy="7" r="1" fill="#ef4444"/><circle cx="9.2" cy="9.5" r="1.1" fill="#4deeea"/></svg>`,
+  star: `<svg viewBox="0 0 16 16" class="ui-svg-icon"><polygon points="8,1.5 9.8,5.8 14.5,6.2 10.9,9.2 12,13.8 8,11.3 4,13.8 5.1,9.2 1.5,6.2 6.2,5.8" fill="#f5b942" stroke="#92400e" stroke-width="1"/></svg>`,
 };
 
 const UI_SVG_FRAMES: Partial<Record<keyof typeof UI_SVG_FALLBACKS, number>> = {
@@ -103,12 +172,36 @@ const UI_SVG_FRAMES: Partial<Record<keyof typeof UI_SVG_FALLBACKS, number>> = {
   teleport: 15,
 };
 
+const UI_EXT_SVG_FRAMES: Partial<Record<keyof typeof UI_SVG_FALLBACKS, number>> = {
+  villagers: 0,
+  grimoire: 1,
+  compendium: 2,
+  pin: 3,
+  soundOn: 4,
+  soundOff: 5,
+  save: 6,
+  trash: 7,
+  dragon: 8,
+  unicorn: 9,
+  egg: 10,
+  star: 11,
+};
+
 export const UI_SVG: typeof UI_SVG_FALLBACKS = new Proxy(UI_SVG_FALLBACKS, {
   get(target, prop: string | symbol) {
-    if (typeof prop === 'string' && uiSheetAvailable) {
-      const frame = UI_SVG_FRAMES[prop as keyof typeof UI_SVG_FALLBACKS];
-      if (typeof frame === 'number') {
-        return renderUiSheetIcon(frame, 16);
+    if (typeof prop === 'string') {
+      const key = prop as keyof typeof UI_SVG_FALLBACKS;
+      if (uiSheetAvailable) {
+        const frame = UI_SVG_FRAMES[key];
+        if (typeof frame === 'number') {
+          return renderUiSheetIcon(frame, 16);
+        }
+      }
+      if (uiExtSheetAvailable) {
+        const extFrame = UI_EXT_SVG_FRAMES[key];
+        if (typeof extFrame === 'number') {
+          return renderUiExtSheetIcon(extFrame, 16);
+        }
       }
     }
     return target[prop as keyof typeof UI_SVG_FALLBACKS];
@@ -122,61 +215,50 @@ export function renderGuardianPaperDollSvg(
   const armorDef = armorId ? getItemDef(armorId) : undefined;
   const weaponDef = weaponId ? getItemDef(weaponId) : undefined;
 
-  let robeMain = '#3f7558';
-  let robeTrim = '#f5b942';
   let robeAura = 'rgba(77, 238, 234, 0.14)';
 
   if (armorId === 'tunica_neblina') {
-    robeMain = '#4a6b53';
-    robeTrim = '#7e8ce0';
     robeAura = 'rgba(126, 140, 224, 0.22)';
   } else if (armorId === 'armadura_granito_runico') {
-    robeMain = '#78716c';
-    robeTrim = '#f59e0b';
     robeAura = 'rgba(245, 158, 11, 0.24)';
   } else if (armorId === 'manto_escama_dragao') {
-    robeMain = '#991b1b';
-    robeTrim = '#f5b942';
     robeAura = 'rgba(239, 68, 68, 0.28)';
   } else if (!armorDef) {
-    robeMain = '#3a3552';
-    robeTrim = '#64748b';
     robeAura = 'rgba(148, 163, 184, 0.1)';
   }
 
-  const staffGem = weaponDef?.visualColor ?? '#4deeea';
+  const armorColor = armorDef?.visualColor ?? '#64748b';
+  const weaponColor = weaponDef?.visualColor ?? '#4deeea';
+  const armorOverlayRow =
+    armorId === 'tunica_neblina'
+      ? 0
+      : armorId === 'armadura_granito_runico'
+      ? 1
+      : armorId === 'manto_escama_dragao'
+      ? 2
+      : null;
 
   return `
-    <svg viewBox="0 0 96 108" class="paperdoll-svg" aria-label="Avatar do Guardião Tomé">
-      <ellipse cx="48" cy="96" rx="28" ry="7" fill="${robeAura}" />
-      <!-- Cabelo e Rosto -->
-      <rect x="34" y="14" width="28" height="22" rx="4" fill="#f2c9a0" stroke="#1b1726" stroke-width="2"/>
-      <path d="M32 22c0-8 7-13 16-13s16 5 16 13l-3-4-5 2-6-3-6 3-5-2z" fill="#231c2e" stroke="#1b1726" stroke-width="1.5"/>
-      <rect x="40" y="25" width="3" height="4" fill="#14121d"/>
-      <rect x="53" y="25" width="3" height="4" fill="#14121d"/>
-      <!-- Tronco / Roupa equipada -->
-      <path d="M29 40h38l4 32H25z" fill="${robeMain}" stroke="#1b1726" stroke-width="2" stroke-linejoin="round"/>
-      <rect x="31" y="40" width="34" height="5" fill="${robeTrim}"/>
-      <rect x="30" y="59" width="36" height="4" fill="${robeTrim}"/>
-      <rect x="44" y="47" width="8" height="8" rx="1.5" fill="${robeTrim}" opacity="0.9"/>
-      <!-- Braços -->
-      <rect x="21" y="42" width="8" height="18" rx="2" fill="${robeMain}" stroke="#1b1726" stroke-width="1.8"/>
-      <rect x="67" y="42" width="8" height="18" rx="2" fill="${robeMain}" stroke="#1b1726" stroke-width="1.8"/>
-      <!-- Botas -->
-      <rect x="34" y="72" width="10" height="18" rx="2" fill="#4a2c18" stroke="#1b1726" stroke-width="2"/>
-      <rect x="52" y="72" width="10" height="18" rx="2" fill="#4a2c18" stroke="#1b1726" stroke-width="2"/>
+    <div class="paperdoll-pixel-stage" style="--armor-aura:${robeAura};--armor-accent:${armorColor};--weapon-accent:${weaponColor}" aria-label="Avatar do Guardião Tomé">
+      <div class="paperdoll-aura-disc"></div>
+      <div class="paperdoll-player-sprite" role="img" aria-label="Tomé em pixel art"></div>
       ${
-        weaponDef
-          ? `
-        <!-- Cajado equipado na mão direita -->
-        <line x1="76" y1="88" x2="82" y2="18" stroke="#8b5e3c" stroke-width="4" stroke-linecap="round"/>
-        <circle cx="82" cy="18" r="7" fill="#1b1726"/>
-        <circle cx="82" cy="18" r="5" fill="${staffGem}"/>
-        <circle cx="80.5" cy="16.5" r="2" fill="#ffffff" opacity="0.85"/>
-      `
+        armorOverlayRow !== null
+          ? `<div class="paperdoll-armor-overlay" style="background-position: 0% ${(armorOverlayRow / 5) * 100}%" aria-hidden="true"></div>`
           : ''
       }
-    </svg>
+      <img class="paperdoll-portrait-badge" src="/assets/portraits/tome.png" alt="Retrato de Tomé" width="48" height="48" draggable="false" />
+      ${
+        weaponDef
+          ? `<div class="paperdoll-gear-badge weapon" title="${weaponDef.name}">${renderItemIconHtml(weaponDef.id, 24)}</div>`
+          : ''
+      }
+      ${
+        armorDef
+          ? `<div class="paperdoll-gear-badge armor" title="${armorDef.name}">${renderItemIconHtml(armorDef.id, 24)}</div>`
+          : ''
+      }
+    </div>
   `;
 }
 
