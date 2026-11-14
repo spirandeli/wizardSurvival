@@ -651,9 +651,24 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private findNpcAtTile(tileX: number, tileY: number): NPC | undefined {
-    return this.npcSprites.find(
-      (npc) => Math.abs(npc.tileX - tileX) <= 1 && Math.abs(npc.tileY - tileY) <= 1 && (npc.tileX === tileX && npc.tileY === tileY)
-    ) ?? this.npcSprites.find((npc) => Math.abs(npc.tileX - tileX) + Math.abs(npc.tileY - tileY) <= 1);
+    return (
+      this.npcSprites.find((npc) => {
+        const liveX = Math.floor(npc.x / TILE_SIZE);
+        const liveY = Math.floor((npc.y + 6) / TILE_SIZE);
+        return (
+          (Math.abs(liveX - tileX) <= 1 && Math.abs(liveY - tileY) <= 1 && liveX === tileX && liveY === tileY) ||
+          (npc.tileX === tileX && npc.tileY === tileY)
+        );
+      }) ??
+      this.npcSprites.find((npc) => {
+        const liveX = Math.floor(npc.x / TILE_SIZE);
+        const liveY = Math.floor((npc.y + 6) / TILE_SIZE);
+        return (
+          Math.abs(liveX - tileX) + Math.abs(liveY - tileY) <= 1 ||
+          Math.abs(npc.tileX - tileX) + Math.abs(npc.tileY - tileY) <= 1
+        );
+      })
+    );
   }
 
   private tryGiftNpcNearTile(tileX: number, tileY: number): void {
@@ -2560,8 +2575,207 @@ export class WorldScene extends Phaser.Scene {
       this.npcActivityCheckMs = 0;
       const inWorkHours = state.time.minuteOfDay >= 9 * 60 && state.time.minuteOfDay <= 17 * 60;
       for (const npc of this.npcSprites) {
-        const hasActivity = typeof NPC_ACTIVITY_ROWS[npc.npcDef.id] === 'number';
+        const hasActivity =
+          typeof NPC_ACTIVITY_ROWS[npc.npcDef.id] === 'number' ||
+          this.anims.exists(`npc_${npc.npcDef.id}_work`);
         npc.setWorkingActivity(hasActivity && inWorkHours);
+      }
+
+      // Bancadas vivas e partículas de trabalho na Fazenda
+      if (this.mapId === 'fazenda') {
+        for (const tile of Object.values(state.tiles)) {
+          if (!tile.placedItemId) continue;
+          const center = this.gridSystem.tileToWorldCenter(tile.tileX, tile.tileY);
+          if (tile.placedItemId === 'incubadora_arcana' && state.incubatingEggs.length > 0) {
+            const bubble = this.add
+              .circle(center.x + (Math.random() * 14 - 7), center.y - 6, 2.2, 0x38bdf8, 0.85)
+              .setDepth(center.y + 18);
+            this.tweens.add({
+              targets: bubble,
+              y: center.y - 24,
+              alpha: 0,
+              scale: 1.4,
+              duration: 900,
+              onComplete: () => bubble.destroy(),
+            });
+          } else if (tile.placedItemId === 'bancada_fundicao') {
+            const ember = this.add
+              .circle(center.x + (Math.random() * 12 - 6), center.y - 8, 2, 0xf97316, 0.9)
+              .setDepth(center.y + 18);
+            this.tweens.add({
+              targets: ember,
+              x: ember.x + (Math.random() * 10 - 5),
+              y: center.y - 26,
+              alpha: 0,
+              duration: 780,
+              onComplete: () => ember.destroy(),
+            });
+          } else if (tile.placedItemId === 'bancada_encantamento') {
+            const spark = this.add
+              .circle(center.x + (Math.random() * 16 - 8), center.y - 10, 1.8, 0xc084fc, 0.85)
+              .setDepth(center.y + 18);
+            this.tweens.add({
+              targets: spark,
+              y: center.y - 24,
+              alpha: 0,
+              duration: 850,
+              onComplete: () => spark.destroy(),
+            });
+          } else if (tile.placedItemId === 'aspersor_bavario') {
+            for (const angle of [0, Math.PI / 2, Math.PI, (Math.PI * 3) / 2]) {
+              const drop = this.add
+                .circle(center.x, center.y - 2, 1.8, 0x38bdf8, 0.8)
+                .setDepth(center.y + 15);
+              this.tweens.add({
+                targets: drop,
+                x: center.x + Math.cos(angle + state.time.minuteOfDay) * 20,
+                y: center.y + Math.sin(angle + state.time.minuteOfDay) * 14,
+                alpha: 0,
+                duration: 620,
+                onComplete: () => drop.destroy(),
+              });
+            }
+          }
+        }
+      }
+
+      // Peixes saltando no rio / sapos na margem (Fazenda e Cidade)
+      if (!isNight && (this.mapId === 'fazenda' || this.mapId === 'cidade') && Math.random() < 0.42) {
+        const waterSpot =
+          this.mapId === 'fazenda'
+            ? { x: (51 + Math.floor(Math.random() * 5)) * TILE_SIZE + 16, y: (14 + Math.floor(Math.random() * 16)) * TILE_SIZE + 16 }
+            : { x: (4 + Math.floor(Math.random() * 6)) * TILE_SIZE + 16, y: (20 + Math.floor(Math.random() * 3)) * TILE_SIZE + 16 };
+        if (this.textures.exists('wildlife_fauna_v2_sheet') && this.anims.exists('fish_leap_anim')) {
+          const fish = this.add
+            .sprite(waterSpot.x, waterSpot.y, 'wildlife_fauna_v2_sheet', 4)
+            .setDepth(waterSpot.y + 20);
+          fish.play('fish_leap_anim');
+          fish.once('animationcomplete', () => fish.destroy());
+        } else if (this.textures.exists('ambient_life_vfx_sheet') && this.anims.exists('rain_splash_anim')) {
+          const splash = this.add
+            .sprite(waterSpot.x, waterSpot.y, 'ambient_life_vfx_sheet', 12)
+            .setDepth(waterSpot.y + 20);
+          splash.play('rain_splash_anim');
+          splash.once('animationcomplete', () => splash.destroy());
+        }
+      }
+    }
+
+    // Atualização autônoma contínua dos NPCs (patrulha em 4 direções, trabalho e reação ao jogador)
+    for (const npc of this.npcSprites) {
+      npc.updateAutonomous(deltaMs, this.player.x, this.player.y, (wx, wy) => {
+        const tx = Math.floor(wx / TILE_SIZE);
+        const ty = Math.floor(wy / TILE_SIZE);
+        if (tx < 1 || ty < 1 || tx >= this.map.width - 1 || ty >= this.map.height - 1) return false;
+        return !this.colisoesLayer?.getTileAt(tx, ty);
+      });
+    }
+
+    // Movimentação autônoma viva dos Mini-Dragões e Unicórnios na Fazenda
+    const petsSleep = state.time.minuteOfDay >= 20 * 60 || state.time.minuteOfDay < 6 * 60;
+    const dtSec = deltaMs / 1000;
+    this.petSprites.forEach((pet, idx) => {
+      if (!(pet instanceof Phaser.GameObjects.Sprite) || !pet.active) return;
+      let homeX = pet.getData('homeX') as number | undefined;
+      let homeY = pet.getData('homeY') as number | undefined;
+      if (typeof homeX !== 'number' || typeof homeY !== 'number') {
+        homeX = pet.x;
+        homeY = pet.y;
+        pet.setData('homeX', homeX);
+        pet.setData('homeY', homeY);
+        pet.setData('phase', idx * 1.7 + 0.4);
+      }
+      if (petsSleep) {
+        if (this.anims.exists('dragon_sleep_ext') && pet.anims.currentAnim?.key !== 'dragon_sleep_ext') {
+          pet.play('dragon_sleep_ext', true);
+        }
+        return;
+      }
+      const nextPhase = ((pet.getData('phase') as number) ?? 0) + dtSec * (0.95 + (idx % 3) * 0.22);
+      pet.setData('phase', nextPhase);
+      const offsetX = Math.sin(nextPhase) * 24;
+      const offsetY = Math.cos(nextPhase * 0.75) * 11;
+      const vx = Math.cos(nextPhase) * 24;
+      const flying = Math.sin(nextPhase * 0.5) > 0.45;
+      const targetAnim =
+        flying && this.anims.exists('mini_dragon_idle')
+          ? 'mini_dragon_idle'
+          : this.anims.exists('dragon_walk_ext')
+          ? 'dragon_walk_ext'
+          : 'mini_dragon_idle';
+      if (pet.anims.currentAnim?.key !== targetAnim && this.anims.exists(targetAnim)) {
+        pet.play(targetAnim, true);
+      }
+      pet.setFlipX(vx < 0);
+      pet.setPosition(homeX + offsetX, homeY + offsetY - (flying ? 6 : 0));
+      pet.setDepth(pet.y + 8);
+    });
+
+    const absDay = this.animalSystem.getAbsoluteDay();
+    this.unicornSprites.forEach((u, idx) => {
+      const sprite = u.sprite;
+      if (!(sprite instanceof Phaser.GameObjects.Sprite) || !sprite.active) return;
+      let homeX = sprite.getData('homeX') as number | undefined;
+      let homeY = sprite.getData('homeY') as number | undefined;
+      if (typeof homeX !== 'number' || typeof homeY !== 'number') {
+        homeX = sprite.x;
+        homeY = sprite.y;
+        sprite.setData('homeX', homeX);
+        sprite.setData('homeY', homeY);
+        sprite.setData('phase', idx * 2.1 + 0.8);
+      }
+      if (petsSleep) {
+        if (this.anims.exists('unicorn_sleep_ext') && sprite.anims.currentAnim?.key !== 'unicorn_sleep_ext') {
+          sprite.play('unicorn_sleep_ext', true);
+        }
+        return;
+      }
+      const nextPhase = ((sprite.getData('phase') as number) ?? 0) + dtSec * (0.72 + (idx % 2) * 0.18);
+      sprite.setData('phase', nextPhase);
+      const pauseCycle = Math.sin(nextPhase * 0.6);
+      const uData = state.unicorns.find((entry) => entry.id === u.unicornId);
+      const ready = uData ? uData.lastMilkDay < absDay : false;
+      if (pauseCycle > 0.35) {
+        const idleAnim = ready
+          ? this.anims.exists('unicorn_ready_ext')
+            ? 'unicorn_ready_ext'
+            : 'unicorn_ready'
+          : this.anims.exists('unicorn_graze_ext')
+          ? 'unicorn_graze_ext'
+          : 'unicorn_idle';
+        if (sprite.anims.currentAnim?.key !== idleAnim && this.anims.exists(idleAnim)) {
+          sprite.play(idleAnim, true);
+        }
+      } else {
+        const offsetX = Math.sin(nextPhase) * 26;
+        const offsetY = Math.cos(nextPhase * 0.8) * 10;
+        const vx = Math.cos(nextPhase);
+        sprite.setFlipX(vx < 0);
+        sprite.setPosition(homeX + offsetX, homeY + offsetY);
+        u.tileX = Math.floor(sprite.x / TILE_SIZE);
+        u.tileY = Math.floor((sprite.y + 6) / TILE_SIZE);
+        const walkAnim = this.anims.exists('unicorn_walk') ? 'unicorn_walk' : 'unicorn_graze_ext';
+        if (sprite.anims.currentAnim?.key !== walkAnim && this.anims.exists(walkAnim)) {
+          sprite.play(walkAnim, true);
+        }
+      }
+      sprite.setDepth(sprite.y + 8);
+    });
+
+    // Reação da fauna ambiente (pássaros e bichos fogem/voam quando o jogador se aproxima)
+    for (const w of this.wildlifeSprites) {
+      if (!(w instanceof Phaser.GameObjects.Sprite) || !w.active) continue;
+      const prevX = (w.getData('prevX') as number | undefined) ?? w.x;
+      if (Math.abs(w.x - prevX) > 0.15) {
+        w.setFlipX(w.x < prevX);
+      }
+      w.setData('prevX', w.x);
+
+      const dPlayer = Phaser.Math.Distance.Between(this.player.x, this.player.y, w.x, w.y);
+      if (dPlayer < 64 && w.anims.currentAnim?.key === 'sparrow_fly') {
+        const awayAngle = Math.atan2(w.y - this.player.y, w.x - this.player.x);
+        w.x += Math.cos(awayAngle) * 55 * dtSec;
+        w.y += Math.sin(awayAngle) * 55 * dtSec - 18 * dtSec;
       }
     }
   }

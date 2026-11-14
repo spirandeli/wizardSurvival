@@ -688,7 +688,10 @@ def build_grid_sprite_sheet(
     guided: bool = False,
     height_priority: bool = False,
 ) -> None:
-    raw = Image.open(RAW_DIR / filename)
+    src_path = RAW_DIR / filename
+    if not src_path.exists():
+        return
+    raw = Image.open(src_path)
     if bg_mode == "magenta":
         src = remove_magenta_bg(raw)
     else:
@@ -1347,6 +1350,124 @@ if __name__ == "__main__":
         pad_bottom=2,
         clear_interior_holes=False,
         guided=True,
+        height_priority=True,
+    )
+    # Lotes v2: Movimentação Completa de NPCs, Inimigos, Chefes, Pets, Fauna e Bancadas
+    for npc_id in (
+        "celeste",
+        "bento",
+        "isis",
+        "lyra",
+        "seu_zeca",
+        "prefeito_arlindo",
+        "seu_damiao",
+        "rafael",
+    ):
+        build_grid_sprite_sheet(
+            f"npc_{npc_id}_move.png",
+            cols=4,
+            rows=4,
+            cell_size=48,
+            anchor="bottom",
+            pad_bottom=2,
+            clear_interior_holes=False,
+            guided=True,
+            height_priority=True,
+        )
+    build_grid_sprite_sheet(
+        "npcs_activities_part2.png",
+        cols=4,
+        rows=4,
+        cell_size=48,
+        anchor="bottom",
+        pad_bottom=2,
+        clear_interior_holes=False,
+        guided=True,
+        height_priority=True,
+    )
+    for enemy_ext_name in (
+        "enemies_earth_ext.png",
+        "enemies_crystal_sky_ext.png",
+        "enemies_omena_ext.png",
+    ):
+        build_grid_sprite_sheet(
+            enemy_ext_name,
+            cols=4,
+            rows=4,
+            cell_size=48,
+            anchor="bottom",
+            pad_bottom=2,
+            clear_interior_holes=False,
+            guided=True,
+            height_priority=True,
+        )
+    for boss_ext_name in (
+        "boss_earth_guardian_ext.png",
+        "bosses_elemental_ext.png",
+        "boss_omena_ext.png",
+    ):
+        build_grid_sprite_sheet(
+            boss_ext_name,
+            cols=6,
+            rows=2,
+            cell_size=64,
+            anchor="bottom",
+            pad_bottom=2,
+            clear_interior_holes=False,
+            guided=True,
+            height_priority=True,
+        )
+    build_grid_sprite_sheet(
+        "companions_ext.png",
+        cols=4,
+        rows=4,
+        cell_size=48,
+        anchor="center",
+        clear_interior_holes=False,
+        guided=True,
+        height_priority=True,
+    )
+    build_grid_sprite_sheet(
+        "pets_movement_ext.png",
+        cols=4,
+        rows=4,
+        cell_size=48,
+        anchor="bottom",
+        pad_bottom=2,
+        clear_interior_holes=False,
+        guided=True,
+        height_priority=True,
+    )
+    build_grid_sprite_sheet(
+        "wildlife_fauna_v2.png",
+        cols=4,
+        rows=6,
+        cell_size=32,
+        anchor="center",
+        clear_interior_holes=False,
+        guided=True,
+        height_priority=True,
+    )
+    build_grid_sprite_sheet(
+        "workbenches_animated.png",
+        cols=4,
+        rows=4,
+        cell_size=48,
+        anchor="bottom",
+        pad_bottom=2,
+        clear_interior_holes=False,
+        guided=True,
+        height_priority=True,
+    )
+    build_grid_sprite_sheet(
+        "props_living_v2.png",
+        cols=4,
+        rows=3,
+        cell_size=32,
+        anchor="center",
+        clear_interior_holes=False,
+        guided=True,
+        height_priority=True,
     )
     # Lote 4, 5, 6, 7, 9, 10A & 12: Ícones, Retratos, UI e Tilesets
     build_items_icons_sheet()

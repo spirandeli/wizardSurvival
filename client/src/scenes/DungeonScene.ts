@@ -967,20 +967,26 @@ export class DungeonScene extends Phaser.Scene {
       if (hitSet) {
         if (hitSet.has(enemy)) return;
         hitSet.add(enemy);
-      } else {
+      }
+
+      const projX = proj.x;
+      const projY = proj.y;
+      const extraElem = (proj.getData('extraElemental') as Partial<Record<ElementType, number>> | undefined) ?? {
+        arcano: 14,
+      };
+      const basePhysical = (proj.getData('basePhysical') as number | undefined) ?? 6;
+
+      if (!hitSet) {
         proj.destroy();
       }
 
       const stats = CombatSystem.getPlayerAttackStats(gameState.getState());
-      const extraElem = (proj.getData('extraElemental') as Partial<Record<ElementType, number>> | undefined) ?? {
-        arcano: 14,
-      };
       const dmg = calculateElementalDamage({
-        basePhysical: (proj.getData('basePhysical') as number | undefined) ?? 6,
+        basePhysical,
         elementalDamage: { ...extraElem, ...(stats.elementalDamage ?? {}) },
         targetResistances: enemy.stats.resistances,
       });
-      this.damageEnemy(enemy, dmg.totalDamage, proj.x, proj.y);
+      this.damageEnemy(enemy, dmg.totalDamage, projX, projY);
     });
 
     this.physics.add.overlap(this.player, this.enemyProjectiles, (_p, projObj) => {
@@ -1559,7 +1565,7 @@ export class DungeonScene extends Phaser.Scene {
     if (dead) {
       const wasBoss = enemy.stats.isBoss;
       const enemyKind = enemy.kind;
-      enemy.destroy();
+      enemy.playDeathAndDestroy();
 
       const qs = new QuestSystem(gameState.getState(), this.inventorySystem);
       qs.recordEnemyDefeated(enemyKind);
@@ -1567,7 +1573,7 @@ export class DungeonScene extends Phaser.Scene {
 
       if (wasBoss) {
         for (const helper of this.enemies) {
-          if (helper.active) helper.destroy();
+          if (helper.active && helper !== enemy) helper.playDeathAndDestroy();
         }
         this.onGuardianFreed();
       } else {
@@ -1808,7 +1814,7 @@ export class DungeonScene extends Phaser.Scene {
 
     // Portal de retorno da arena do Guardião ao pressionar [E]
     if (this.isBossFloor) {
-      const bossAlive = this.enemies.some((e) => e.active);
+      const bossAlive = this.enemies.some((e) => e.active && !e.isDying);
       if (!bossAlive) {
         const margin = 20;
         for (const portal of this.bossPortals) {

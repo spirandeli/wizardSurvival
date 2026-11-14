@@ -7,6 +7,7 @@ import {
   INTERIOR_FRAMES,
   NATURE_EXTENDED_FRAMES,
   DUNGEON_DETAIL_FRAMES,
+  NPC_ACTIVITY_PART2_ROWS,
   NPC_ACTIVITY_ROWS,
   NPC_SHEET_COLS,
 } from '../config/spriteSheets';
@@ -126,8 +127,8 @@ export class BootScene extends Phaser.Scene {
       frameHeight: 48,
     });
     this.load.spritesheet('boss_omena_sheet', '/assets/sprites/boss_omena.png', {
-      frameWidth: 96,
-      frameHeight: 96,
+      frameWidth: 64,
+      frameHeight: 64,
     });
     this.load.spritesheet('omena_world_props_sheet', '/assets/sprites/omena_world_props.png', {
       frameWidth: 48,
@@ -1158,8 +1159,20 @@ export class BootScene extends Phaser.Scene {
 
     if (this.textures.exists('npcs_sheet')) {
       for (const [npcId, col] of Object.entries(NPC_SHEET_COLS)) {
-        ensureAnim(`npc_${npcId}_idle`, 'npcs_sheet', [col, col + 8], 2, -1);
-        ensureAnim(`npc_${npcId}_side`, 'npcs_sheet', [col + 16, col + 24, col + 32], 4, -1);
+        const moveSheetKey = `npc_${npcId}_move_sheet`;
+        if (this.textures.exists(moveSheetKey)) {
+          ensureAnim(`npc_${npcId}_walk_down`, moveSheetKey, [0, 1, 2, 3], 7, -1);
+          ensureAnim(`npc_${npcId}_walk_up`, moveSheetKey, [4, 5, 6, 7], 7, -1);
+          ensureAnim(`npc_${npcId}_side`, moveSheetKey, [8, 9, 10, 11], 7, -1);
+          ensureAnim(`npc_${npcId}_walk_side`, moveSheetKey, [8, 9, 10, 11], 7, -1);
+          ensureAnim(`npc_${npcId}_idle`, moveSheetKey, [12, 13, 14, 15], 3, -1);
+        } else {
+          ensureAnim(`npc_${npcId}_idle`, 'npcs_sheet', [col, col + 8], 2, -1);
+          ensureAnim(`npc_${npcId}_side`, 'npcs_sheet', [col + 16, col + 24, col + 32, col + 24], 6, -1);
+          ensureAnim(`npc_${npcId}_walk_side`, 'npcs_sheet', [col + 16, col + 24, col + 32, col + 24], 6, -1);
+          ensureAnim(`npc_${npcId}_walk_down`, 'npcs_sheet', [col, col + 8, col + 16, col + 8], 5, -1);
+          ensureAnim(`npc_${npcId}_walk_up`, 'npcs_sheet', [col + 16, col + 24, col + 32, col + 24], 6, -1);
+        }
       }
     }
 
@@ -1210,37 +1223,58 @@ export class BootScene extends Phaser.Scene {
 
     if (this.textures.exists('enemy_golem_sheet')) {
       ensureAnim('golem_walk', 'enemy_golem_sheet', [0, 1, 2, 3, 5, 6, 7, 8], 7, -1);
+      ensureAnim('golem_windup', 'enemy_golem_sheet', [10, 11, 12], 8, 0);
       ensureAnim('golem_smash', 'enemy_golem_sheet', [10, 11, 12, 13, 14, 18], 10, 0);
+      ensureAnim('golem_hurt', 'enemy_golem_sheet', [15, 16], 9, 0);
+      ensureAnim('golem_death', 'enemy_golem_sheet', [16, 17, 18, 14], 8, 0);
     }
 
     if (this.textures.exists('enemy_wisp_sheet')) {
       ensureAnim('wisp_float', 'enemy_wisp_sheet', [0, 1, 2, 3, 4, 5, 6, 7], 8, -1);
+      ensureAnim('wisp_windup', 'enemy_wisp_sheet', [6, 7, 8], 9, 0);
       ensureAnim('wisp_burst', 'enemy_wisp_sheet', [8, 9, 10, 11], 10, 0);
+      ensureAnim('wisp_hurt', 'enemy_wisp_sheet', [7, 8], 10, 0);
+      ensureAnim('wisp_death', 'enemy_wisp_sheet', [8, 9, 10, 11], 10, 0);
     }
 
     if (this.textures.exists('boss_earth_guardian_sheet')) {
       ensureAnim('boss_earth_idle', 'boss_earth_guardian_sheet', [0, 1, 2], 5, -1);
+      ensureAnim('boss_earth_windup', 'boss_earth_guardian_sheet', [2, 3, 4], 7, 0);
       ensureAnim('boss_earth_attack', 'boss_earth_guardian_sheet', [3, 4, 5, 0], 8, 0);
+      ensureAnim('boss_earth_hurt', 'boss_earth_guardian_sheet', [3, 5], 8, 0);
+      ensureAnim('boss_earth_death', 'boss_earth_guardian_sheet', [3, 4, 5], 6, 0);
     }
 
     if (this.textures.exists('enemy_serpente_sheet')) {
       ensureAnim('serpente_idle', 'enemy_serpente_sheet', [0, 1, 2, 3], 6, -1);
+      ensureAnim('serpente_windup', 'enemy_serpente_sheet', [4, 5], 8, 0);
       ensureAnim('serpente_attack', 'enemy_serpente_sheet', [4, 5, 6, 7, 0], 10, 0);
+      ensureAnim('serpente_hurt', 'enemy_serpente_sheet', [8, 9], 9, 0);
+      ensureAnim('serpente_death', 'enemy_serpente_sheet', [9, 10, 11], 8, 0);
     }
 
     if (this.textures.exists('enemy_sonda_sheet')) {
       ensureAnim('sonda_hover', 'enemy_sonda_sheet', [0, 1, 2, 3], 6, -1);
+      ensureAnim('sonda_windup', 'enemy_sonda_sheet', [4, 5, 6], 9, 0);
       ensureAnim('sonda_attack', 'enemy_sonda_sheet', [4, 5, 6, 7, 0], 10, 0);
+      ensureAnim('sonda_hurt', 'enemy_sonda_sheet', [8, 9], 10, 0);
+      ensureAnim('sonda_death', 'enemy_sonda_sheet', [9, 10, 11], 8, 0);
     }
 
     if (this.textures.exists('boss_water_guardian_sheet')) {
       ensureAnim('boss_water_idle', 'boss_water_guardian_sheet', [0, 1, 2, 3, 4, 5], 6, -1);
+      ensureAnim('boss_water_windup', 'boss_water_guardian_sheet', [6, 7], 8, 0);
       ensureAnim('boss_water_attack', 'boss_water_guardian_sheet', [6, 7, 8, 9, 10, 0], 9, 0);
+      ensureAnim('boss_water_hurt', 'boss_water_guardian_sheet', [9, 10], 8, 0);
+      ensureAnim('boss_water_death', 'boss_water_guardian_sheet', [9, 10, 11], 6, 0);
     }
 
     if (this.textures.exists('boss_sky_guardian_sheet')) {
       ensureAnim('boss_sky_idle', 'boss_sky_guardian_sheet', [0, 1, 2, 3, 4, 5], 6, -1);
+      ensureAnim('boss_sky_windup', 'boss_sky_guardian_sheet', [6, 7], 8, 0);
       ensureAnim('boss_sky_attack', 'boss_sky_guardian_sheet', [6, 7, 8, 9, 10, 0], 9, 0);
+      ensureAnim('boss_sky_hurt', 'boss_sky_guardian_sheet', [8, 9], 8, 0);
+      ensureAnim('boss_sky_death', 'boss_sky_guardian_sheet', [9, 10, 11], 6, 0);
     }
 
     if (this.textures.exists('pet_unicornio_sheet')) {
@@ -1273,12 +1307,18 @@ export class BootScene extends Phaser.Scene {
 
     if (this.textures.exists('enemy_sentinela_sheet')) {
       ensureAnim('sentinela_idle', 'enemy_sentinela_sheet', [0, 1, 2, 3], 7, -1);
+      ensureAnim('sentinela_windup', 'enemy_sentinela_sheet', [4, 5, 6], 9, 0);
       ensureAnim('sentinela_attack', 'enemy_sentinela_sheet', [4, 5, 6, 7, 0], 11, 0);
+      ensureAnim('sentinela_hurt', 'enemy_sentinela_sheet', [8, 9], 9, 0);
+      ensureAnim('sentinela_death', 'enemy_sentinela_sheet', [9, 10, 11], 8, 0);
     }
 
     if (this.textures.exists('boss_omena_sheet')) {
       ensureAnim('omena_idle', 'boss_omena_sheet', [0, 1, 2, 3, 4, 5], 6, -1);
+      ensureAnim('omena_windup', 'boss_omena_sheet', [6, 7], 8, 0);
       ensureAnim('omena_attack', 'boss_omena_sheet', [6, 7, 8, 9, 10, 0], 10, 0);
+      ensureAnim('omena_hurt', 'boss_omena_sheet', [9, 10], 8, 0);
+      ensureAnim('omena_death', 'boss_omena_sheet', [9, 10, 11], 6, 0);
     }
 
     if (this.textures.exists('omena_world_props_sheet')) {
@@ -1338,6 +1378,20 @@ export class BootScene extends Phaser.Scene {
       for (const [npcId, row] of Object.entries(NPC_ACTIVITY_ROWS)) {
         const start = row * 4;
         ensureAnim(`npc_${npcId}_work`, 'npcs_activities_sheet', [start, start + 1, start + 2, start + 3], 6, -1);
+      }
+    }
+
+    if (this.textures.exists('npcs_activities_part2_sheet')) {
+      for (const [npcId, row] of Object.entries(NPC_ACTIVITY_PART2_ROWS)) {
+        const start = row * 4;
+        ensureAnim(`npc_${npcId}_work`, 'npcs_activities_part2_sheet', [start, start + 1, start + 2, start + 3], 6, -1);
+      }
+    } else if (this.textures.exists('npcs_sheet')) {
+      for (const npcId of Object.keys(NPC_ACTIVITY_PART2_ROWS)) {
+        const col = NPC_SHEET_COLS[npcId];
+        if (typeof col === 'number') {
+          ensureAnim(`npc_${npcId}_work`, 'npcs_sheet', [col, col + 8, col + 24, col + 8], 4, -1);
+        }
       }
     }
 
@@ -1438,6 +1492,31 @@ export class BootScene extends Phaser.Scene {
         6,
         -1
       );
+    }
+
+    if (this.textures.exists('workbenches_animated_sheet')) {
+      ensureAnim('incubadora_active_anim', 'workbenches_animated_sheet', [0, 1, 2, 3], 6, -1);
+      ensureAnim('forja_active_anim', 'workbenches_animated_sheet', [4, 5, 6, 7], 7, -1);
+      ensureAnim('bancada_encantamento_active', 'workbenches_animated_sheet', [8, 9, 10, 11], 7, -1);
+      ensureAnim('cauldron_bubble_anim', 'workbenches_animated_sheet', [12, 13], 5, -1);
+      ensureAnim('anvil_glow_anim', 'workbenches_animated_sheet', [14, 15], 5, -1);
+    }
+
+    if (this.textures.exists('props_living_v2_sheet')) {
+      ensureAnim('aspersor_spin_anim', 'props_living_v2_sheet', [0, 1, 2, 3], 8, -1);
+      ensureAnim('shipping_bin_glint_anim', 'props_living_v2_sheet', [4, 5, 6, 7], 5, -1);
+      ensureAnim('fountain_ripple_anim', 'props_living_v2_sheet', [8, 9, 10, 11], 6, -1);
+    }
+
+    if (this.textures.exists('wildlife_fauna_v2_sheet')) {
+      ensureAnim('frog_idle_anim', 'wildlife_fauna_v2_sheet', [0, 1], 3, -1);
+      ensureAnim('frog_hop_anim', 'wildlife_fauna_v2_sheet', [2, 3, 0], 8, 0);
+      ensureAnim('fish_leap_anim', 'wildlife_fauna_v2_sheet', [4, 5, 6, 7], 9, 0);
+      ensureAnim('squirrel_sniff_anim', 'wildlife_fauna_v2_sheet', [8, 9], 4, -1);
+      ensureAnim('squirrel_hop_anim', 'wildlife_fauna_v2_sheet', [10, 11], 10, -1);
+      ensureAnim('owl_perch_anim', 'wildlife_fauna_v2_sheet', [12, 13], 3, -1);
+      ensureAnim('owl_fly_anim', 'wildlife_fauna_v2_sheet', [14, 15], 8, -1);
+      ensureAnim('sparrow_peck_anim', 'wildlife_fauna_v2_sheet', [16, 17, 18, 17], 6, -1);
     }
   }
 }

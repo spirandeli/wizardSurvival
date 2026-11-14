@@ -16,7 +16,10 @@ interface EnemyStats {
   texture: string;
   sheetKey: string;
   idleAnim: string;
+  windupAnim?: string;
   attackAnim?: string;
+  hurtAnim?: string;
+  deathAnim?: string;
   maxHp: number;
   speed: number;
   physicalDamage: number;
@@ -33,7 +36,10 @@ const ENEMY_CONFIGS: Record<EnemyKind, EnemyStats> = {
     texture: 'enemy_golem_pedra',
     sheetKey: 'enemy_golem_sheet',
     idleAnim: 'golem_walk',
+    windupAnim: 'golem_windup',
     attackAnim: 'golem_smash',
+    hurtAnim: 'golem_hurt',
+    deathAnim: 'golem_death',
     maxHp: 45,
     speed: 62,
     physicalDamage: 10,
@@ -45,7 +51,10 @@ const ENEMY_CONFIGS: Record<EnemyKind, EnemyStats> = {
     texture: 'enemy_espectro_ruina',
     sheetKey: 'enemy_wisp_sheet',
     idleAnim: 'wisp_float',
+    windupAnim: 'wisp_windup',
     attackAnim: 'wisp_burst',
+    hurtAnim: 'wisp_hurt',
+    deathAnim: 'wisp_death',
     maxHp: 32,
     speed: 88,
     physicalDamage: 6,
@@ -57,7 +66,10 @@ const ENEMY_CONFIGS: Record<EnemyKind, EnemyStats> = {
     texture: 'enemy_serpente_cristal',
     sheetKey: 'enemy_serpente_sheet',
     idleAnim: 'serpente_idle',
+    windupAnim: 'serpente_windup',
     attackAnim: 'serpente_attack',
+    hurtAnim: 'serpente_hurt',
+    deathAnim: 'serpente_death',
     maxHp: 42,
     speed: 102,
     physicalDamage: 9,
@@ -69,7 +81,10 @@ const ENEMY_CONFIGS: Record<EnemyKind, EnemyStats> = {
     texture: 'enemy_sonda_ufologica',
     sheetKey: 'enemy_sonda_sheet',
     idleAnim: 'sonda_hover',
+    windupAnim: 'sonda_windup',
     attackAnim: 'sonda_attack',
+    hurtAnim: 'sonda_hurt',
+    deathAnim: 'sonda_death',
     maxHp: 48,
     speed: 82,
     physicalDamage: 7,
@@ -84,7 +99,10 @@ const ENEMY_CONFIGS: Record<EnemyKind, EnemyStats> = {
     texture: 'boss_guardiao_terra',
     sheetKey: 'boss_earth_guardian_sheet',
     idleAnim: 'boss_earth_idle',
+    windupAnim: 'boss_earth_windup',
     attackAnim: 'boss_earth_attack',
+    hurtAnim: 'boss_earth_hurt',
+    deathAnim: 'boss_earth_death',
     maxHp: 220,
     speed: 74,
     physicalDamage: 14,
@@ -99,7 +117,10 @@ const ENEMY_CONFIGS: Record<EnemyKind, EnemyStats> = {
     texture: 'boss_guardiao_aguas',
     sheetKey: 'boss_water_guardian_sheet',
     idleAnim: 'boss_water_idle',
+    windupAnim: 'boss_water_windup',
     attackAnim: 'boss_water_attack',
+    hurtAnim: 'boss_water_hurt',
+    deathAnim: 'boss_water_death',
     maxHp: 260,
     speed: 82,
     physicalDamage: 14,
@@ -114,7 +135,10 @@ const ENEMY_CONFIGS: Record<EnemyKind, EnemyStats> = {
     texture: 'boss_guardiao_ceus',
     sheetKey: 'boss_sky_guardian_sheet',
     idleAnim: 'boss_sky_idle',
+    windupAnim: 'boss_sky_windup',
     attackAnim: 'boss_sky_attack',
+    hurtAnim: 'boss_sky_hurt',
+    deathAnim: 'boss_sky_death',
     maxHp: 290,
     speed: 92,
     physicalDamage: 15,
@@ -129,7 +153,10 @@ const ENEMY_CONFIGS: Record<EnemyKind, EnemyStats> = {
     texture: 'enemy_sentinela_omena',
     sheetKey: 'enemy_sentinela_sheet',
     idleAnim: 'sentinela_idle',
+    windupAnim: 'sentinela_windup',
     attackAnim: 'sentinela_attack',
+    hurtAnim: 'sentinela_hurt',
+    deathAnim: 'sentinela_death',
     maxHp: 62,
     speed: 94,
     physicalDamage: 12,
@@ -144,7 +171,10 @@ const ENEMY_CONFIGS: Record<EnemyKind, EnemyStats> = {
     texture: 'boss_omena',
     sheetKey: 'boss_omena_sheet',
     idleAnim: 'omena_idle',
+    windupAnim: 'omena_windup',
     attackAnim: 'omena_attack',
+    hurtAnim: 'omena_hurt',
+    deathAnim: 'omena_death',
     maxHp: 420,
     speed: 86,
     physicalDamage: 18,
@@ -163,6 +193,14 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   public hp: number;
   public effectiveMaxHp: number;
   public damageScale = 1;
+  public isDying = false;
+  private readonly spawnX: number;
+  private readonly spawnY: number;
+  private patrolAngle = Math.random() * Math.PI * 2;
+  private patrolTimerMs = 800 + Math.random() * 900;
+  private patrolMoving = true;
+  private windupRemainingMs = 0;
+  private pendingRangedTarget: { x: number; y: number } | null = null;
   private attackCooldownMs = 0;
   private rangedCooldownMs = 1600;
   private specialCooldownMs = 4400;
@@ -179,6 +217,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.stats = cfg;
     this.hp = cfg.maxHp;
     this.effectiveMaxHp = cfg.maxHp;
+    this.spawnX = x;
+    this.spawnY = y;
     this.useSpriteSheet = hasSheet;
 
     scene.add.existing(this);
@@ -228,6 +268,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     onBossFire?: (originX: number, originY: number, targetX: number, targetY: number) => void,
     onBossTelegraph?: (targetX: number, targetY: number, radius: number, phase: 1 | 2 | 3) => void
   ): void {
+    if (this.isDying || !this.active) return;
     const body = this.body as Phaser.Physics.Arcade.Body;
     if (this.attackCooldownMs > 0) this.attackCooldownMs = Math.max(0, this.attackCooldownMs - deltaMs);
 
@@ -243,16 +284,55 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     const aggroRange = this.stats.isBoss ? 520 : 260;
     const phase = this.getBossPhase();
     const speedMult = this.kind === 'omena' ? (phase === 3 ? 1.35 : phase === 2 ? 1.18 : 1) : 1;
-    if (dist < aggroRange && dist > 8) {
-      body.setVelocity((dx / dist) * this.stats.speed * speedMult, (dy / dist) * this.stats.speed * speedMult);
-      if (this.useSpriteSheet && !this.stats.isBoss && Math.abs(dx) > 6) {
+
+    // Handle active ranged windup before firing projectile
+    if (this.windupRemainingMs > 0) {
+      this.windupRemainingMs = Math.max(0, this.windupRemainingMs - deltaMs);
+      body.setVelocity(0, 0);
+      if (this.windupRemainingMs === 0 && this.pendingRangedTarget && onBossFire) {
+        this.playAttackOnce();
+        onBossFire(this.x, this.y, this.pendingRangedTarget.x, this.pendingRangedTarget.y);
+        this.pendingRangedTarget = null;
+      }
+    } else if (dist < aggroRange && dist > 8) {
+      const vx = (dx / dist) * this.stats.speed * speedMult;
+      const vy = (dy / dist) * this.stats.speed * speedMult;
+      body.setVelocity(vx, vy);
+      if (this.useSpriteSheet && Math.abs(dx) > 6) {
         this.setFlipX(dx < 0);
       }
     } else {
-      body.setVelocity(0, 0);
+      // Autonomous patrol around spawn point when player is out of aggro range
+      this.patrolTimerMs -= deltaMs;
+      if (this.patrolTimerMs <= 0) {
+        this.patrolMoving = !this.patrolMoving;
+        this.patrolTimerMs = this.patrolMoving
+          ? 1100 + Math.random() * 900
+          : 700 + Math.random() * 800;
+        if (this.patrolMoving) {
+          const toSpawnX = this.spawnX - this.x;
+          const toSpawnY = this.spawnY - this.y;
+          if (Math.hypot(toSpawnX, toSpawnY) > 54) {
+            this.patrolAngle = Math.atan2(toSpawnY, toSpawnX);
+          } else {
+            this.patrolAngle += (Math.random() - 0.5) * Math.PI * 1.2;
+          }
+        }
+      }
+      if (this.patrolMoving) {
+        const patrolSpeed = this.stats.speed * 0.42;
+        const pvx = Math.cos(this.patrolAngle) * patrolSpeed;
+        const pvy = Math.sin(this.patrolAngle) * patrolSpeed;
+        body.setVelocity(pvx, pvy);
+        if (this.useSpriteSheet && Math.abs(pvx) > 4) {
+          this.setFlipX(pvx < 0);
+        }
+      } else {
+        body.setVelocity(0, 0);
+      }
     }
 
-    if (this.stats.canFireRanged && onBossFire && dist < 440) {
+    if (this.stats.canFireRanged && onBossFire && dist < 440 && this.windupRemainingMs === 0) {
       this.rangedCooldownMs -= deltaMs;
       if (this.rangedCooldownMs <= 0) {
         const baseInterval = this.stats.rangedIntervalMs ?? 2100;
@@ -264,8 +344,9 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
               ? 1250
               : baseInterval
             : baseInterval;
-        this.playAttackOnce();
-        onBossFire(this.x, this.y, playerX, playerY);
+        this.pendingRangedTarget = { x: playerX, y: playerY };
+        this.windupRemainingMs = 240;
+        this.playWindupOnce();
       }
     }
 
@@ -274,12 +355,13 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       if (this.specialCooldownMs <= 0) {
         this.specialCooldownMs = this.kind === 'omena' && phase === 3 ? 3300 : 4700;
         const radius = phase === 3 ? 52 : 42;
+        this.playWindupOnce();
         onBossTelegraph(playerX, playerY, radius, phase);
       }
     }
 
     if (this.hpBarBg && this.hpBarFill) {
-      const showBar = this.hp < this.effectiveMaxHp;
+      const showBar = this.hp < this.effectiveMaxHp && !this.isDying;
       this.hpBarBg.setVisible(showBar).setPosition(this.x, this.y - 22);
       this.hpBarFill
         .setVisible(showBar)
@@ -290,19 +372,67 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.setDepth(this.y);
   }
 
+  playWindupOnce(): void {
+    if (!this.useSpriteSheet || !this.stats.windupAnim) return;
+    if (!this.scene.anims.exists(this.stats.windupAnim)) return;
+    this.play(this.stats.windupAnim, true);
+  }
+
   playAttackOnce(): void {
     if (!this.useSpriteSheet || !this.stats.attackAnim) return;
     if (!this.scene.anims.exists(this.stats.attackAnim)) return;
     this.play(this.stats.attackAnim, true);
     this.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
-      if (this.active && this.scene.anims.exists(this.stats.idleAnim)) {
+      if (this.active && !this.isDying && this.scene.anims.exists(this.stats.idleAnim)) {
         this.play(this.stats.idleAnim, true);
       }
     });
   }
 
+  playHurtOnce(): void {
+    if (!this.useSpriteSheet || !this.stats.hurtAnim || this.isDying) return;
+    if (!this.scene.anims.exists(this.stats.hurtAnim)) return;
+    this.play(this.stats.hurtAnim, true);
+    this.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+      if (this.active && !this.isDying && this.scene.anims.exists(this.stats.idleAnim)) {
+        this.play(this.stats.idleAnim, true);
+      }
+    });
+  }
+
+  playDeathAndDestroy(): void {
+    if (this.isDying) return;
+    this.isDying = true;
+    const body = this.body as Phaser.Physics.Arcade.Body | null;
+    if (body) {
+      body.setVelocity(0, 0);
+      body.enable = false;
+    }
+    this.hpBarBg?.setVisible(false);
+    this.hpBarFill?.setVisible(false);
+    this.clearTint();
+
+    if (
+      this.useSpriteSheet &&
+      this.stats.deathAnim &&
+      this.scene.anims.exists(this.stats.deathAnim)
+    ) {
+      this.play(this.stats.deathAnim, true);
+      this.scene.tweens.add({
+        targets: this,
+        alpha: 0.15,
+        duration: 420,
+        onComplete: () => {
+          if (this.active) this.destroy();
+        },
+      });
+    } else {
+      this.destroy();
+    }
+  }
+
   canTouchAttack(): boolean {
-    if (this.attackCooldownMs > 0) return false;
+    if (this.isDying || this.attackCooldownMs > 0) return false;
     this.attackCooldownMs = 750;
     this.playAttackOnce();
     return true;
@@ -317,11 +447,15 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   }
 
   takeDamage(amount: number, knockX: number, knockY: number): boolean {
+    if (this.isDying) return false;
     this.hp = Math.max(0, this.hp - amount);
     this.hitFlashMs = 95;
     this.setTintFill(0xffffff);
     const body = this.body as Phaser.Physics.Arcade.Body;
     body.setVelocity(knockX * 140, knockY * 140);
+    if (this.hp > 0) {
+      this.playHurtOnce();
+    }
     return this.hp <= 0;
   }
 
