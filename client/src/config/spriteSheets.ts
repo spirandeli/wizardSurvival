@@ -1,0 +1,178 @@
+export const NPC_SHEET_COLS: Record<string, number> = {
+  celeste: 0,
+  bento: 1,
+  isis: 2,
+  lyra: 3,
+  seu_zeca: 4,
+  prefeito_arlindo: 5,
+  seu_damiao: 6,
+  rafael: 7,
+};
+
+export const CREATURES_FIRE_FRAMES = {
+  EGG_EMBER: 0,
+  EGG_CRYSTAL: 1,
+  EGG_VOLCANIC: 2,
+  DRAGON_IDLE_START: 4,
+  DRAGON_IDLE_END: 7,
+  INCUBADORA: 8,
+  FORJA: 9,
+} as const;
+
+export const COMPANION_FRAMES = {
+  REMO_START: 0,
+  REMO_END: 3,
+  LUPIN_START: 4,
+  LUPIN_END: 7,
+} as const;
+
+export const OMENA_PROPS_FRAMES = {
+  NUCLEO_START: 0,
+  NUCLEO_END: 3,
+  PORTAL_START: 4,
+  PORTAL_END: 7,
+} as const;
+
+export const TOOLS_VFX_FRAMES = {
+  HOE_DIRT_START: 0,
+  HOE_DIRT_END: 3,
+  WATER_SPLASH_START: 4,
+  WATER_SPLASH_END: 7,
+  PICKAXE_SPARK_START: 8,
+  PICKAXE_SPARK_END: 9,
+  AXE_CHIPS_START: 10,
+  AXE_CHIPS_END: 11,
+  FISHING_BOBBER_START: 12,
+  FISHING_BOBBER_END: 15,
+} as const;
+
+export const AMBIENT_VFX_FRAMES = {
+  BUTTERFLY_START: 0,
+  BUTTERFLY_END: 3,
+  FIREFLY_START: 4,
+  FIREFLY_END: 7,
+  SPARROW_START: 8,
+  SPARROW_END: 11,
+  RAIN_SPLASH_START: 12,
+  RAIN_SPLASH_END: 15,
+  PETALS_START: 16,
+  PETALS_END: 19,
+} as const;
+
+export const NPC_ACTIVITY_ROWS: Record<string, number> = {
+  bento: 0,
+  celeste: 1,
+  isis: 2,
+  seu_zeca: 3,
+};
+
+export const PETS_EXTENDED_FRAMES = {
+  DRAGON_WALK_START: 0,
+  DRAGON_WALK_END: 3,
+  DRAGON_SLEEP_START: 4,
+  DRAGON_SLEEP_END: 7,
+  UNICORN_GRAZE_START: 8,
+  UNICORN_GRAZE_END: 11,
+  UNICORN_SLEEP_START: 12,
+  UNICORN_SLEEP_END: 15,
+  UNICORN_READY_START: 16,
+  UNICORN_READY_END: 19,
+} as const;
+
+export const MODULAR_BUILDING_FRAMES = {
+  // 6 columns x 4 rows (32x32 tiles)
+  RED_ROOF_LEFT: 0,
+  RED_ROOF_MID: 1,
+  RED_ROOF_RIGHT: 2,
+  RED_ROOF_GABLE: 3,
+  RED_ROOF_CHIMNEY: 4,
+  DARK_ROOF: 5,
+  WALL_LEFT: 6,
+  WALL_MID: 7,
+  WALL_IVY_FLOWER: 8,
+  WINDOW_LIT: 9,
+  WINDOW_DARK: 10,
+  WALL_RIGHT: 11,
+  DOOR_SINGLE: 12,
+  DOOR_DOUBLE: 13,
+  WALL_THRESHOLD: 14,
+  SIGN_FORGE: 15,
+  SIGN_BOTICA: 16,
+  SIGN_PUB: 17,
+  CHIMNEY_SMOKE_1: 18,
+  CHIMNEY_SMOKE_2: 19,
+  CHIMNEY_SMOKE_3: 20,
+  CHIMNEY_SMOKE_4: 21,
+  WALL_LANTERN_1: 22,
+  WALL_LANTERN_2: 23,
+} as const;
+
+export const INTERIOR_FRAMES = {
+  // 4 columns x 4 rows (32x32 tiles)
+  FIREPLACE_1: 0,
+  FIREPLACE_2: 1,
+  FIREPLACE_3: 2,
+  FIREPLACE_4: 3,
+  STOVE_CAULDRON: 4,
+  BOOKSHELF: 5,
+  TABLE_CRYSTAL: 6,
+  ARMCHAIR: 7,
+  RUG_LEFT: 8,
+  RUG_MID: 9,
+  RUG_DIAMOND: 10,
+  WINDOW_HERBS: 11,
+  COUNTER_SHOP: 12,
+  BARREL_SACKS: 13,
+  POTION_SHELF: 14,
+  BED_ARCANE: 15,
+} as const;
+
+export const NATURE_EXTENDED_FRAMES = {
+  // 6 columns x 4 rows (32x32 tiles)
+  GRASS_ALT: 0,
+  GRASS_TALL: 1,
+  GRASS_FLOWERS: 2,
+  DIRT_PATH_ALT: 3,
+  STEPPING_STONES: 4,
+  COBBLE_ARCH: 5,
+  WATER_SHIMMER_1: 6,
+  WATER_SHIMMER_2: 7,
+  WATER_SHIMMER_3: 8,
+  WATER_SHIMMER_4: 9,
+  RIVERBANK: 10,
+  SHORELINE: 11,
+  TREE_IPE_PURPLE: 12,
+  TREE_OAK_A: 13,
+  TREE_OAK_B: 14,
+  TREE_OAK_C: 15,
+  TREE_STUMP: 16,
+  RUNE_BOULDER: 17,
+  FENCE_H: 18,
+  FENCE_V: 19,
+  FENCE_CORNER: 20,
+  FENCE_GATE: 21,
+  STREET_LAMP_OFF: 22,
+  STREET_LAMP_LIT: 23,
+} as const;
+
+export const DUNGEON_DETAIL_FRAMES = {
+  // 4 columns x 4 rows (32x32 tiles)
+  TORCH_1: 0,
+  TORCH_2: 1,
+  TORCH_3: 2,
+  TORCH_4: 3,
+  CHEST_CLOSED: 4,
+  CHEST_OPEN_1: 5,
+  CHEST_OPEN_2: 6,
+  CHEST_OPEN: 7,
+  FLOOR_CRACKED: 8,
+  CLAY_POT: 9,
+  WOOD_CRATE: 10,
+  FLOOR_CRYSTAL_CRACK: 11,
+  PORTAL_PAD_1: 12,
+  PORTAL_PAD_2: 13,
+  PORTAL_PAD_3: 14,
+  PORTAL_PAD_4: 15,
+} as const;
+
+
