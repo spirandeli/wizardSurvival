@@ -28,19 +28,6 @@ interface MovementKeys {
   shift: Phaser.Input.Keyboard.Key;
 }
 
-const FACING_OVERLAY_COL: Record<CardinalDirection, number> = {
-  down: 0,
-  up: 1,
-  left: 2,
-  right: 3,
-};
-
-const ARMOR_OVERLAY_ROWS: Record<string, number> = {
-  tunica_neblina: 0,
-  armadura_granito_runico: 1,
-  manto_escama_dragao: 2,
-};
-
 export class Player extends Phaser.Physics.Arcade.Sprite {
   public facing: CardinalDirection = 'down';
   private keys: MovementKeys | null = null;
@@ -57,8 +44,6 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private walkFrame = false;
   private readonly useSpriteSheet: boolean;
   private armorAura: Phaser.GameObjects.Ellipse;
-  private equipmentOverlay: Phaser.GameObjects.Sprite | null = null;
-  private armorOverlayRow: number | null = null;
   private heldItemSprite: Phaser.GameObjects.Image | null = null;
   private stepSurfaceResolver?: () => StepSurface;
 
@@ -115,38 +100,6 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.setData('equippedWeaponId', weaponId);
     } else {
       this.setData('equippedWeaponId', null);
-    }
-
-    this.armorOverlayRow = armorId ? (ARMOR_OVERLAY_ROWS[armorId] ?? null) : null;
-    if (this.armorOverlayRow !== null && this.scene.textures.exists('player_equipment_overlays_sheet')) {
-      const col = FACING_OVERLAY_COL[this.facing];
-      const frameIdx = this.armorOverlayRow * 4 + col;
-      if (!this.equipmentOverlay) {
-        this.equipmentOverlay = this.scene.add
-          .sprite(this.x, this.y, 'player_equipment_overlays_sheet', frameIdx)
-          .setDepth(this.getSortY() + 0.05);
-      } else {
-        this.equipmentOverlay.setVisible(true).setFrame(frameIdx);
-      }
-    } else {
-      this.equipmentOverlay?.setVisible(false);
-    }
-  }
-
-  private syncEquipmentOverlayTransform(sortY: number): void {
-    if (!this.equipmentOverlay || this.armorOverlayRow === null) return;
-    if (!this.useSpriteSheet) {
-      this.equipmentOverlay.setVisible(false);
-      return;
-    }
-    const frameIdx = this.armorOverlayRow * 4 + FACING_OVERLAY_COL[this.facing];
-    this.equipmentOverlay
-      .setVisible(this.visible)
-      .setPosition(this.x, this.y)
-      .setAlpha(this.alpha)
-      .setDepth(sortY + 0.05);
-    if (this.equipmentOverlay.frame.name !== String(frameIdx)) {
-      this.equipmentOverlay.setFrame(frameIdx);
     }
   }
 
@@ -560,7 +513,6 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.setDepth(sortY);
       this.armorAura.setPosition(this.x, this.y + (this.useSpriteSheet ? 17 : 10));
       this.armorAura.setDepth(sortY - 1);
-      this.syncEquipmentOverlayTransform(sortY);
       if (this.dashTimerMs === 0) {
         this.setFlipX(false);
       }
@@ -572,7 +524,6 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       body.setVelocity(0, 0);
       const sortY = this.getSortY();
       this.setDepth(sortY);
-      this.syncEquipmentOverlayTransform(sortY);
       if (this.actionTimerMs === 0) {
         this.setFlipX(false);
       }
@@ -666,14 +617,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.setDepth(sortY);
     this.armorAura.setPosition(this.x, this.y + (this.useSpriteSheet ? 17 : 10));
     this.armorAura.setDepth(sortY - 1);
-    this.syncEquipmentOverlayTransform(sortY);
   }
 
   override destroy(fromScene?: boolean): void {
     this.armorAura.destroy();
-    this.equipmentOverlay?.destroy();
     this.heldItemSprite?.destroy();
-    this.equipmentOverlay = null;
     this.heldItemSprite = null;
     super.destroy(fromScene);
   }

@@ -650,16 +650,18 @@ export class DungeonScene extends Phaser.Scene {
         portalPad.play('dungeon_portal_anim');
       }
 
-      // Chão rachado, tochas em paredes e vasos/caixotes quebráveis
+      // Chão rachado (dungeons de pedra), tochas em paredes e vasos/caixotes quebráveis
       let torchesPlaced = 0;
       let potsPlaced = 0;
+      const allowStoneFloorCracks =
+        this.dungeonId === 'machu_picchu' || this.dungeonId === 'chapada';
       for (let y = 1; y < layout.height - 1; y++) {
         for (let x = 1; x < layout.width - 1; x++) {
           const isWalkable = !collisions.getTileAt(x, y);
           if (!isWalkable) continue;
           const hash = (x * 31 + y * 17 + this.seed) % 29;
           const pos = this.gridSystem.tileToWorldCenter(x, y);
-          if (hash === 3) {
+          if (allowStoneFloorCracks && hash === 3) {
             this.add
               .image(pos.x, pos.y, 'dungeons_details_sheet', DUNGEON_DETAIL_FRAMES.FLOOR_CRACKED)
               .setAlpha(0.75)
@@ -761,12 +763,6 @@ export class DungeonScene extends Phaser.Scene {
     if (layout.requiresCrystalPuzzle) {
       for (const node of layout.crystalNodes) {
         const pos = this.gridSystem.tileToWorldCenter(node.tileX, node.tileY);
-        if (this.textures.exists('dungeons_details_sheet')) {
-          this.add
-            .image(pos.x, pos.y + 2, 'dungeons_details_sheet', DUNGEON_DETAIL_FRAMES.FLOOR_CRYSTAL_CRACK)
-            .setAlpha(0.85)
-            .setDepth(1);
-        }
         const sprite = this.textures.exists('crystal_pillars_sheet')
           ? this.add.sprite(pos.x, pos.y - 6, 'crystal_pillars_sheet', node.order - 1).setDepth(pos.y)
           : this.add.image(pos.x, pos.y, `crystal_pillar_${node.order}`).setDepth(pos.y);

@@ -2629,45 +2629,7 @@ export class WorldScene extends Phaser.Scene {
       for (let y = 0; y < this.map.height; y++) {
         for (let x = 0; x < this.map.width; x++) {
           const colTile = this.colisoesLayer?.getTileAt(x, y);
-          const chaoTile = this.chaoLayer?.getTileAt(x, y);
-          const decoTile = this.decoracaoLayer?.getTileAt(x, y);
           const center = this.gridSystem.tileToWorldCenter(x, y);
-
-          if ((colTile?.index === 4 || chaoTile?.index === 4) && (x + y) % 3 === 0) {
-            if (this.anims.exists('water_shimmer_anim')) {
-              const shimmer = this.add
-                .sprite(center.x, center.y, 'nature_extended_sheet', NATURE_EXTENDED_FRAMES.WATER_SHIMMER_1)
-                .setAlpha(0.5)
-                .setDepth(3);
-              shimmer.play('water_shimmer_anim');
-            }
-          }
-
-          // Margens de rio e orla arenosa junto à água (sem cobrir pontes/pier)
-          if (!colTile && chaoTile?.index !== 4 && this.colisoesLayer?.getTileAt(x, y + 1)?.index === 4) {
-            const bankFrame =
-              x < 24 && this.mapId === 'fazenda'
-                ? NATURE_EXTENDED_FRAMES.SHORELINE
-                : NATURE_EXTENDED_FRAMES.RIVERBANK;
-            this.add
-              .image(center.x, center.y + 4, 'nature_extended_sheet', bankFrame)
-              .setAlpha(0.85)
-              .setDepth(2);
-          }
-
-          // Variações orgânicas de grama/flores em prados abertos (fora da terra arável GID 5)
-          if (chaoTile?.index === 1 && !decoTile && !colTile) {
-            const hash = (x * 41 + y * 23) % 31;
-            if (hash === 2 || hash === 11 || hash === 19) {
-              const grassFrames = [
-                NATURE_EXTENDED_FRAMES.GRASS_ALT,
-                NATURE_EXTENDED_FRAMES.GRASS_TALL,
-                NATURE_EXTENDED_FRAMES.GRASS_FLOWERS,
-              ] as const;
-              const gf = grassFrames[hash % grassFrames.length] ?? NATURE_EXTENDED_FRAMES.GRASS_ALT;
-              this.add.image(center.x, center.y, 'nature_extended_sheet', gf).setAlpha(0.85).setDepth(1);
-            }
-          }
 
           if (colTile?.index === 13) {
             const isBorder = x <= 0 || y <= 0 || x >= this.map.width - 1 || y >= this.map.height - 1;
@@ -2744,8 +2706,17 @@ export class WorldScene extends Phaser.Scene {
           this.add
             .image(x * TILE_SIZE + 16, 4 * TILE_SIZE + 16, 'buildings_modular_sheet', roofFrame)
             .setDepth(farmhouseBaseDepth + 2);
+
+          const lowerRoofFrame =
+            x === 28
+              ? MODULAR_BUILDING_FRAMES.RED_ROOF_GABLE
+              : x === 24
+              ? MODULAR_BUILDING_FRAMES.RED_ROOF_LEFT
+              : x === 31
+              ? MODULAR_BUILDING_FRAMES.RED_ROOF_RIGHT
+              : MODULAR_BUILDING_FRAMES.RED_ROOF_MID;
           this.add
-            .image(x * TILE_SIZE + 16, 5 * TILE_SIZE + 16, 'buildings_modular_sheet', MODULAR_BUILDING_FRAMES.RED_ROOF_GABLE)
+            .image(x * TILE_SIZE + 16, 5 * TILE_SIZE + 16, 'buildings_modular_sheet', lowerRoofFrame)
             .setDepth(farmhouseBaseDepth + 2);
 
           const wallFrame =
@@ -2759,13 +2730,12 @@ export class WorldScene extends Phaser.Scene {
           this.add
             .image(x * TILE_SIZE + 16, 6 * TILE_SIZE + 16, 'buildings_modular_sheet', wallFrame)
             .setDepth(farmhouseBaseDepth);
-        }
 
-        if (this.anims.exists('chimney_smoke_anim')) {
-          const smoke = this.add
-            .sprite(29 * TILE_SIZE + 16, 3 * TILE_SIZE + 16, 'buildings_modular_sheet', MODULAR_BUILDING_FRAMES.CHIMNEY_SMOKE_1)
-            .setDepth(farmhouseBaseDepth + 3);
-          smoke.play('chimney_smoke_anim');
+          if (x !== 28) {
+            this.add
+              .image(x * TILE_SIZE + 16, 7 * TILE_SIZE + 16, 'buildings_modular_sheet', wallFrame)
+              .setDepth(farmhouseBaseDepth);
+          }
         }
 
         for (const wx of [25, 29]) {
@@ -2807,19 +2777,44 @@ export class WorldScene extends Phaser.Scene {
       if (this.textures.exists('buildings_modular_sheet')) {
         const shopBaseDepth = 5 * TILE_SIZE + 28;
         const shops = [
-          { signX: 5, doorX: 6, chimneyX: 7, signFrame: MODULAR_BUILDING_FRAMES.SIGN_FORGE, roofDark: true },
-          { signX: 13, doorX: 14, chimneyX: 15, signFrame: MODULAR_BUILDING_FRAMES.SIGN_BOTICA, roofDark: false },
-          { signX: 21, doorX: 22, chimneyX: 24, signFrame: MODULAR_BUILDING_FRAMES.SIGN_PUB, roofDark: true },
+          { startX: 4, endX: 8, signX: 5, doorX: 6, chimneyX: 7, signFrame: MODULAR_BUILDING_FRAMES.SIGN_FORGE, roofDark: true },
+          { startX: 12, endX: 16, signX: 13, doorX: 14, chimneyX: 15, signFrame: MODULAR_BUILDING_FRAMES.SIGN_BOTICA, roofDark: false },
+          { startX: 20, endX: 25, signX: 21, doorX: 22, chimneyX: 24, signFrame: MODULAR_BUILDING_FRAMES.SIGN_PUB, roofDark: true },
         ];
         for (const s of shops) {
-          this.add
-            .image(
-              s.chimneyX * TILE_SIZE + 16,
-              3 * TILE_SIZE + 16,
-              'buildings_modular_sheet',
-              s.roofDark ? MODULAR_BUILDING_FRAMES.DARK_ROOF : MODULAR_BUILDING_FRAMES.RED_ROOF_CHIMNEY
-            )
-            .setDepth(shopBaseDepth + 2);
+          for (let x = s.startX; x <= s.endX; x++) {
+            const roofFrame = s.roofDark
+              ? MODULAR_BUILDING_FRAMES.DARK_ROOF
+              : x === s.startX
+              ? MODULAR_BUILDING_FRAMES.RED_ROOF_LEFT
+              : x === s.endX
+              ? MODULAR_BUILDING_FRAMES.RED_ROOF_RIGHT
+              : x === s.chimneyX
+              ? MODULAR_BUILDING_FRAMES.RED_ROOF_CHIMNEY
+              : x === s.doorX
+              ? MODULAR_BUILDING_FRAMES.RED_ROOF_GABLE
+              : MODULAR_BUILDING_FRAMES.RED_ROOF_MID;
+            this.add
+              .image(x * TILE_SIZE + 16, 3 * TILE_SIZE + 16, 'buildings_modular_sheet', roofFrame)
+              .setDepth(shopBaseDepth + 2);
+
+            const wallFrame =
+              x === s.startX
+                ? MODULAR_BUILDING_FRAMES.WALL_LEFT
+                : x === s.endX
+                ? MODULAR_BUILDING_FRAMES.WALL_RIGHT
+                : MODULAR_BUILDING_FRAMES.WALL_MID;
+            this.add
+              .image(x * TILE_SIZE + 16, 4 * TILE_SIZE + 16, 'buildings_modular_sheet', wallFrame)
+              .setDepth(shopBaseDepth);
+
+            if (x !== s.doorX) {
+              this.add
+                .image(x * TILE_SIZE + 16, 5 * TILE_SIZE + 16, 'buildings_modular_sheet', wallFrame)
+                .setDepth(shopBaseDepth);
+            }
+          }
+
           this.add
             .image(s.doorX * TILE_SIZE + 16, 5 * TILE_SIZE + 16, 'buildings_modular_sheet', MODULAR_BUILDING_FRAMES.DOOR_DOUBLE)
             .setDepth(shopBaseDepth);
@@ -2839,12 +2834,6 @@ export class WorldScene extends Phaser.Scene {
             dayFrame: MODULAR_BUILDING_FRAMES.WINDOW_DARK,
             nightFrame: MODULAR_BUILDING_FRAMES.WINDOW_LIT,
           });
-          if (this.anims.exists('chimney_smoke_anim')) {
-            const smoke = this.add
-              .sprite(s.chimneyX * TILE_SIZE + 16, 2 * TILE_SIZE + 16, 'buildings_modular_sheet', MODULAR_BUILDING_FRAMES.CHIMNEY_SMOKE_1)
-              .setDepth(shopBaseDepth + 3);
-            smoke.play('chimney_smoke_anim');
-          }
         }
       }
 
@@ -3127,24 +3116,31 @@ export class WorldScene extends Phaser.Scene {
         }
       }
 
-      // Peixes saltando no rio / sapos na margem (Fazenda e Cidade)
+      // Peixes saltando no rio (apenas em tiles reais de água, com escala proporcional)
       if (!isNight && (this.mapId === 'fazenda' || this.mapId === 'cidade') && Math.random() < 0.42) {
         const waterSpot =
           this.mapId === 'fazenda'
-            ? { x: (51 + Math.floor(Math.random() * 5)) * TILE_SIZE + 16, y: (14 + Math.floor(Math.random() * 16)) * TILE_SIZE + 16 }
-            : { x: (4 + Math.floor(Math.random() * 6)) * TILE_SIZE + 16, y: (20 + Math.floor(Math.random() * 3)) * TILE_SIZE + 16 };
-        if (this.textures.exists('wildlife_fauna_v2_sheet') && this.anims.exists('fish_leap_anim')) {
-          const fish = this.add
-            .sprite(waterSpot.x, waterSpot.y, 'wildlife_fauna_v2_sheet', 4)
-            .setDepth(waterSpot.y + 20);
-          fish.play('fish_leap_anim');
-          fish.once('animationcomplete', () => fish.destroy());
-        } else if (this.textures.exists('ambient_life_vfx_sheet') && this.anims.exists('rain_splash_anim')) {
-          const splash = this.add
-            .sprite(waterSpot.x, waterSpot.y, 'ambient_life_vfx_sheet', 12)
-            .setDepth(waterSpot.y + 20);
-          splash.play('rain_splash_anim');
-          splash.once('animationcomplete', () => splash.destroy());
+            ? { tileX: 12 + Math.floor(Math.random() * 14), tileY: 34 + Math.floor(Math.random() * 4) }
+            : { tileX: 3 + Math.floor(Math.random() * 12), tileY: 18 + Math.floor(Math.random() * 2) };
+        const wCol = this.colisoesLayer?.getTileAt(waterSpot.tileX, waterSpot.tileY);
+        const wChao = this.chaoLayer?.getTileAt(waterSpot.tileX, waterSpot.tileY);
+        if (wCol?.index === 4 || wChao?.index === 4) {
+          const wx = waterSpot.tileX * TILE_SIZE + 16;
+          const wy = waterSpot.tileY * TILE_SIZE + 16;
+          if (this.textures.exists('wildlife_fauna_v2_sheet') && this.anims.exists('fish_leap_anim')) {
+            const fish = this.add
+              .sprite(wx, wy, 'wildlife_fauna_v2_sheet', 4)
+              .setScale(0.55)
+              .setDepth(wy + 20);
+            fish.play('fish_leap_anim');
+            fish.once('animationcomplete', () => fish.destroy());
+          } else if (this.textures.exists('ambient_life_vfx_sheet') && this.anims.exists('rain_splash_anim')) {
+            const splash = this.add
+              .sprite(wx, wy, 'ambient_life_vfx_sheet', 12)
+              .setDepth(wy + 20);
+            splash.play('rain_splash_anim');
+            splash.once('animationcomplete', () => splash.destroy());
+          }
         }
       }
     }
@@ -3362,9 +3358,24 @@ export class WorldScene extends Phaser.Scene {
       if (hasFaunaV2 && i % 3 === 1) {
         const dayFauna = ['dragonfly_hover_anim', 'butterfly_v2_fly_anim', 'sparrow_peck_anim', 'squirrel_sniff_anim', 'frog_idle_anim'] as const;
         const faunaAnim = isNight ? 'owl_perch_anim' : (dayFauna[i % dayFauna.length] ?? 'butterfly_v2_fly_anim');
-        if (this.anims.exists(faunaAnim)) {
+        const isGroundFauna =
+          faunaAnim === 'frog_idle_anim' ||
+          faunaAnim === 'squirrel_sniff_anim' ||
+          faunaAnim === 'sparrow_peck_anim' ||
+          faunaAnim === 'owl_perch_anim';
+        let allowFaunaSpawn = true;
+        if (isGroundFauna) {
+          const tx = Math.floor(fx / TILE_SIZE);
+          const ty = Math.floor(fy / TILE_SIZE);
+          const chaoTile = this.chaoLayer?.getTileAt(tx, ty);
+          const colTile = this.colisoesLayer?.getTileAt(tx, ty);
+          const decoTile = this.decoracaoLayer?.getTileAt(tx, ty);
+          allowFaunaSpawn = chaoTile?.index === 1 && !colTile && !decoTile;
+        }
+        if (allowFaunaSpawn && this.anims.exists(faunaAnim)) {
           const sprite = this.add
             .sprite(fx, fy, 'wildlife_fauna_v2_sheet')
+            .setScale(0.55)
             .setDepth(faunaAnim === 'dragonfly_hover_anim' || faunaAnim === 'butterfly_v2_fly_anim' ? 4500 : fy);
           sprite.play(faunaAnim);
           this.wildlifeSprites.push(sprite);

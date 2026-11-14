@@ -229,24 +229,11 @@ export function renderGuardianPaperDollSvg(
 
   const armorColor = armorDef?.visualColor ?? '#64748b';
   const weaponColor = weaponDef?.visualColor ?? '#4deeea';
-  const armorOverlayRow =
-    armorId === 'tunica_neblina'
-      ? 0
-      : armorId === 'armadura_granito_runico'
-      ? 1
-      : armorId === 'manto_escama_dragao'
-      ? 2
-      : null;
 
   return `
     <div class="paperdoll-pixel-stage" style="--armor-aura:${robeAura};--armor-accent:${armorColor};--weapon-accent:${weaponColor}" aria-label="Avatar do Guardião Tomé">
       <div class="paperdoll-aura-disc"></div>
       <div class="paperdoll-player-sprite" role="img" aria-label="Tomé em pixel art"></div>
-      ${
-        armorOverlayRow !== null
-          ? `<div class="paperdoll-armor-overlay" style="background-position: 0% ${(armorOverlayRow / 5) * 100}%" aria-hidden="true"></div>`
-          : ''
-      }
       <img class="paperdoll-portrait-badge" src="/assets/portraits/tome.png" alt="Retrato de Tomé" width="48" height="48" draggable="false" />
       ${
         weaponDef
